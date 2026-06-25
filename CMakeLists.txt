@@ -20,6 +20,7 @@ find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QU
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
 find_package(TIFF REQUIRED)
 
 if(MV_MIPYR_USE_OPENMP)
