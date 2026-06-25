@@ -4,13 +4,14 @@
   "dependencies": [
     "fmt",
     "nlohmann-json",
-    "zlib",
     {
       "name": "tiff",
       "features": [
         "cxx",
-        "zip",
+        "jpeg",
         "libdeflate",
+        "lzma",
+        "zip",
         "zstd"
       ]
     }
