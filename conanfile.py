@@ -106,7 +106,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
         tc.variables["ManiVault_DIR"] = manivault_dir
 
         # Set some build options
-        tc.cache_variables["MV_UNITY_BUILD"] = "ON"
+        tc.cache_variables["MV_UNITY_BUILD"] = "OFF"
         
         if os_info.is_macos:
             proc = subprocess.run("brew --prefix libomp", shell=True, capture_output=True)
