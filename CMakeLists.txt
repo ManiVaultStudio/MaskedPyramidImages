@@ -26,12 +26,25 @@ endif()
 
 find_package(ZLIB REQUIRED)
 
-message(STATUS "Test: ZLIB_FOUND=${ZLIB_FOUND} ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
+message(STATUS "ZLIB_FOUND=${ZLIB_FOUND}")
+message(STATUS "ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
+message(STATUS "ZLIB_INCLUDE_DIRS=${ZLIB_INCLUDE_DIRS}")
+message(STATUS "ZLIB_VERSION_STRING=${ZLIB_VERSION_STRING}")
+message(STATUS "ZLIB_LIBRARY=${ZLIB_LIBRARY}")          # the cache var
+message(STATUS "ZLIB_LIBRARY_RELEASE=${ZLIB_LIBRARY_RELEASE}")
+message(STATUS "ZLIB_LIBRARY_DEBUG=${ZLIB_LIBRARY_DEBUG}")
 
+# Workaround: FindZLIB on Linux CI can set ZLIB_FOUND=1 but leave
+# ZLIB_LIBRARIES empty and fails to create the ZLIB::ZLIB imported target.
+# Detect and repair this case before find_package(TIFF) runs.
 if(NOT TARGET ZLIB::ZLIB)
-    message(FATAL_ERROR "ZLIB::ZLIB target missing! ZLIB_FOUND=${ZLIB_FOUND} ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
-else()
-    message(STATUS "ZLIB::ZLIB found with ZLIB_FOUND=${ZLIB_FOUND} ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
+    message(STATUS "ZLIB::ZLIB target missing despite ZLIB_FOUND=${ZLIB_FOUND}, creating manually")
+    find_library(ZLIB_LIBRARY_MANUAL NAMES z zlib zlib_static REQUIRED)
+    add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+    set_target_properties(ZLIB::ZLIB PROPERTIES
+        IMPORTED_LOCATION             "${ZLIB_LIBRARY_MANUAL}"
+        INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}"
+    )
 endif()
 
 find_package(fmt CONFIG REQUIRED)
