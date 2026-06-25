@@ -19,7 +19,13 @@
 #include <string>
 
 #if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
+#if defined(__GNUC__)  // both TBB and Qt define emit keyword
+#undef emit
+#endif
 #include <execution>
+#if defined(__GNUC__) // both TBB and Qt define emit keyword
+#define emit
+#endif
 #ifdef NDEBUG
 #define MV_PYRAMID_PARALLEL_EXECUTION std::execution::par,
 #else
