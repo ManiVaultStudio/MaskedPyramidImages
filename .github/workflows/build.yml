@@ -1,4 +1,4 @@
-name: UMAPPlugin
+name: MaskedPyramidImagesPlugin
 
 on:
   push:
