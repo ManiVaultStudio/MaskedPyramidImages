@@ -91,7 +91,6 @@ target_link_libraries(${PYRAMIDTIFFDATA}
         ManiVault::PointData
         ManiVault::ClusterData
         ManiVault::ImageData
-        ZLIB::ZLIB
         TIFF::TIFF
         nlohmann_json::nlohmann_json
         fmt::fmt

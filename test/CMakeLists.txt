@@ -21,7 +21,6 @@ target_compile_features(tifftest PRIVATE cxx_std_20)
 target_link_libraries(tifftest
     PRIVATE
         fmt::fmt
-        ZLIB::ZLIB
         TIFF::TIFF
         nlohmann_json::nlohmann_json
 )
