@@ -18,6 +18,14 @@ find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
 
+# Force FindZLIB to discover vcpkg's copy and create the ZLIB::ZLIB imported target
+if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+    set(ZLIB_ROOT "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}" CACHE PATH "vcpkg zlib root" FORCE)
+    set(ZLIB_INCLUDE_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include" CACHE PATH "" FORCE)
+endif()
+
+find_package(ZLIB REQUIRED)
+
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
