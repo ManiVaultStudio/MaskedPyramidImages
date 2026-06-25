@@ -1,0 +1,9 @@
+{
+    "name" : "Masked Image Pyramid",
+    "version" :  {
+        "plugin" : "1.0.0",
+        "core" : ["1.4"]
+    },
+    "type" : "Data",
+    "dependencies" : ["Points", "Cluster", "Images"]
+}

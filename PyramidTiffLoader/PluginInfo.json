@@ -1,0 +1,10 @@
+{
+    "name" : "Masked Image Pyramid Loader",
+    "menuName" : "Pyramid TIFF",
+    "version" :  {
+        "plugin" : "1.0.0",
+        "core" : ["1.4"]
+    },
+    "type" : "Loader",
+    "dependencies" : ["Masked Image Pyramid"]
+}
