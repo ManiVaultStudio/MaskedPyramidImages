@@ -26,14 +26,6 @@ endif()
 
 find_package(ZLIB REQUIRED)
 
-message(STATUS "ZLIB_FOUND=${ZLIB_FOUND}")
-message(STATUS "ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
-message(STATUS "ZLIB_INCLUDE_DIRS=${ZLIB_INCLUDE_DIRS}")
-message(STATUS "ZLIB_VERSION_STRING=${ZLIB_VERSION_STRING}")
-message(STATUS "ZLIB_LIBRARY=${ZLIB_LIBRARY}")          # the cache var
-message(STATUS "ZLIB_LIBRARY_RELEASE=${ZLIB_LIBRARY_RELEASE}")
-message(STATUS "ZLIB_LIBRARY_DEBUG=${ZLIB_LIBRARY_DEBUG}")
-
 # Workaround: FindZLIB on Linux CI can set ZLIB_FOUND=1 but leave
 # ZLIB_LIBRARIES empty and fails to create the ZLIB::ZLIB imported target.
 # Detect and repair this case before find_package(TIFF) runs.
