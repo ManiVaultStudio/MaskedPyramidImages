@@ -27,7 +27,7 @@ if(MV_MIPYR_USE_OPENMP)
     find_package(OpenMP)
 
     if(OpenMP_CXX_FOUND)
-        message(STATUS "UMAPAnalysisPlugin: Found OpenMP")
+        message(STATUS "MaskedPyramidImages: Found OpenMP")
     endif()
 endif()
 
