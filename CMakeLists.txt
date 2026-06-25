@@ -26,6 +26,14 @@ endif()
 
 find_package(ZLIB REQUIRED)
 
+message(STATUS "Test: ZLIB_FOUND=${ZLIB_FOUND} ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
+
+if(NOT TARGET ZLIB::ZLIB)
+    message(FATAL_ERROR "ZLIB::ZLIB target missing! ZLIB_FOUND=${ZLIB_FOUND} ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
+else()
+    message(STATUS "ZLIB::ZLIB found with ZLIB_FOUND=${ZLIB_FOUND} ZLIB_LIBRARIES=${ZLIB_LIBRARIES}")
+endif()
+
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
