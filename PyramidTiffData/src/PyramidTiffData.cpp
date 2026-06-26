@@ -9,13 +9,13 @@
 #include <ClusterData/ClusterData.h>
 
 #include <fmt/base.h>
-#include <nlohmann/json.hpp>
 
 #include <QFileInfo>
 
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <ranges>
 #include <string>
 
 #if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
@@ -173,10 +173,6 @@ bool PyramidImageData::scan(const QString& tiffFilePath, const QString& jsonFile
     try {
         _polygonMasks.init(jsonFilePath.toStdString(), _tiffPyramid.series().width, _tiffPyramid.series().height);
         _polygonMasks.print_info();
-    }
-    catch (const nlohmann::detail::parse_error& err) {
-        fmt::print("PyramidImageData::scan: cannot read json: {}", err.what());
-        return false;
     }
     catch (const std::runtime_error& err) {
         fmt::print("PyramidImageData::scan: cannot parse json: {}", err.what());
