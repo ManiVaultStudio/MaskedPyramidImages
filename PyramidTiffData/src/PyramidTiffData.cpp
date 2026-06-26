@@ -10,10 +10,8 @@
 
 #include <fmt/base.h>
 
-#include <QFileInfo>
-
 #include <algorithm>
-#include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <ranges>
 #include <string>
@@ -365,13 +363,13 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
 
 void PyramidImage::scan() const
 {
-
-    if (!QFileInfo::exists(_tiffFilePath)) {
+    
+    if (!std::filesystem::exists(_tiffFilePath.toStdString())) {
         fmt::println("PyramidImage::scan: _tiffFilePath does not exist: {}", _tiffFilePath.toStdString());
         return;
     }
-    if (!QFileInfo::exists(_jsonFilePath)) {
-        fmt::println("PyramidImage::scan: _jsonFilePath does not exist: {}", _tiffFilePath.toStdString());
+    if (!std::filesystem::exists(_jsonFilePath.toStdString())) {
+        fmt::println("PyramidImage::scan: _jsonFilePath does not exist: {}", _jsonFilePath.toStdString());
         return;
     }
 
@@ -609,7 +607,7 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
     _tiffFilePath = variantMap[SID_tiffFilePath].toString();
     _jsonFilePath = variantMap[SID_jsonFilePath].toString();
 
-    if (QFileInfo::exists(_tiffFilePath) && QFileInfo::exists(_jsonFilePath)) {
+    if (std::filesystem::exists(_tiffFilePath.toStdString()) && std::filesystem::exists(_jsonFilePath.toStdString())) {
         scan();
     }
     else {
