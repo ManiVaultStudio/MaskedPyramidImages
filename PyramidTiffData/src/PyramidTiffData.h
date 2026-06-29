@@ -215,9 +215,9 @@ public: // Serialization
     QVariantMap toVariantMap() const override;
 
 private:
-    static const QString SID_levelDatasets;
-    static const QString SID_tiffFilePath;
-    static const QString SID_jsonFilePath;
+    const QString SID_levelDatasets = "LevelDatasets";
+    const QString SID_tiffFilePath = "TiffFilePath";
+    const QString SID_jsonFilePath = "JsonFilePath";
 
 private:
     QString _tiffFilePath = {};

@@ -233,9 +233,9 @@ QVariantMap PyramidImageData::toVariantMap() const
 // Data (Set)
 // =============================================================================
 
-const QString PyramidImage::SID_levelDatasets = QStringLiteral("LevelDatasets");
-const QString PyramidImage::SID_tiffFilePath = QStringLiteral("TiffFilePath");
-const QString PyramidImage::SID_jsonFilePath = QStringLiteral("JsonFilePath");
+//const QString PyramidImage::SID_levelDatasets = QStringLiteral("LevelDatasets");
+//const QString PyramidImage::SID_tiffFilePath = QStringLiteral("TiffFilePath");
+//const QString PyramidImage::SID_jsonFilePath = QStringLiteral("JsonFilePath");
 
 PyramidImage::PyramidImage(const QString& dataName, const bool mayUnderive, const QString& guid) :
     DatasetImpl(dataName, mayUnderive, guid)
