@@ -14,7 +14,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <ranges>
+//#include <ranges>
 #include <string>
 
 //#if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
@@ -56,7 +56,7 @@ namespace
         //    v.begin(),
         //    v.end());
 
-        std::sort(v.begin(), v.end());
+        //std::sort(v.begin(), v.end());
         auto last = std::unique(v.begin(), v.end());
     	
     	v.erase(last, v.end());
@@ -301,13 +301,12 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
 
         // Have all datasets been handled? Then reset the counter
     	uint32_t selectionCount = 0;
-        for (const auto count : std::views::values(_selectionCounter))
+        for (const auto& [key, count] : _selectionCounter)
             selectionCount += count;
 
         if (selectionCount == _selectionCounter.size()) {
-            for (auto& count : std::views::values(_selectionCounter)) {
+            for (auto& [key, count] : _selectionCounter)
                 count = 0;
-            }
         }
 
         return;
