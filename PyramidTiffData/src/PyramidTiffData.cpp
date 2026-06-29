@@ -11,27 +11,28 @@
 #include <fmt/base.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <ranges>
 #include <string>
 
-#if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
-#if defined(__GNUC__)  // both TBB and Qt define emit keyword
-#undef emit
-#endif
-#include <execution>
-#if defined(__GNUC__) // both TBB and Qt define emit keyword
-#define emit
-#endif
-#ifdef NDEBUG
-#define MV_PYRAMID_PARALLEL_EXECUTION std::execution::par,
-#else
-#define MV_PYRAMID_PARALLEL_EXECUTION std::execution::seq,
-#endif
-#else // __clang__
-#define MV_PYRAMID_PARALLEL_EXECUTION
-#endif
+//#if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
+//#if defined(__GNUC__)  // both TBB and Qt define emit keyword
+//#undef emit
+//#endif
+//#include <execution>
+//#if defined(__GNUC__) // both TBB and Qt define emit keyword
+//#define emit
+//#endif
+//#ifdef NDEBUG
+//#define MV_PYRAMID_PARALLEL_EXECUTION std::execution::par,
+//#else
+//#define MV_PYRAMID_PARALLEL_EXECUTION std::execution::seq,
+//#endif
+//#else // __clang__
+//#define MV_PYRAMID_PARALLEL_EXECUTION
+//#endif
 
 Q_PLUGIN_METADATA(IID "studio.manivault.PyramidImageData")
 
@@ -48,13 +49,17 @@ namespace
         if (v.size() <= 1)
             return;
 
-        std::sort(MV_PYRAMID_PARALLEL_EXECUTION
-            v.begin(),
-            v.end());
-        auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
-            v.begin(),
-            v.end());
-        v.erase(last, v.end());
+        //std::sort(MV_PYRAMID_PARALLEL_EXECUTION
+        //    v.begin(),
+        //    v.end());
+        //auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
+        //    v.begin(),
+        //    v.end());
+
+        std::sort(v.begin(), v.end());
+        auto last = std::unique(v.begin(), v.end());
+    	
+    	v.erase(last, v.end());
     }
 
     std::vector<uint32_t> convertSelectionToDownscaled(
