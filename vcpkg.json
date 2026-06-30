@@ -8,8 +8,10 @@
       "name": "tiff",
       "features": [
         "cxx",
-        "zip",
+        "jpeg",
         "libdeflate",
+        "lzma",
+        "zip",
         "zstd"
       ]
     }

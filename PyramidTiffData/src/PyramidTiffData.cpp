@@ -9,17 +9,21 @@
 #include <ClusterData/ClusterData.h>
 
 #include <fmt/base.h>
-#include <nlohmann/json.hpp>
-
-#include <QFileInfo>
 
 #include <algorithm>
-#include <cstdlib>
+#include <filesystem>
 #include <fstream>
+#include <ranges>
 #include <string>
 
 #if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
+#if defined(__GNUC__)  // both TBB and Qt define emit keyword
+#undef emit
+#endif
 #include <execution>
+#if defined(__GNUC__) // both TBB and Qt define emit keyword
+#define emit
+#endif
 #ifdef NDEBUG
 #define MV_PYRAMID_PARALLEL_EXECUTION std::execution::par,
 #else
@@ -167,10 +171,6 @@ bool PyramidImageData::scan(const QString& tiffFilePath, const QString& jsonFile
     try {
         _polygonMasks.init(jsonFilePath.toStdString(), _tiffPyramid.series().width, _tiffPyramid.series().height);
         _polygonMasks.print_info();
-    }
-    catch (const nlohmann::detail::parse_error& err) {
-        fmt::print("PyramidImageData::scan: cannot read json: {}", err.what());
-        return false;
     }
     catch (const std::runtime_error& err) {
         fmt::print("PyramidImageData::scan: cannot parse json: {}", err.what());
@@ -363,13 +363,13 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
 
 void PyramidImage::scan() const
 {
-
-    if (!QFileInfo::exists(_tiffFilePath)) {
+    
+    if (!std::filesystem::exists(_tiffFilePath.toStdString())) {
         fmt::println("PyramidImage::scan: _tiffFilePath does not exist: {}", _tiffFilePath.toStdString());
         return;
     }
-    if (!QFileInfo::exists(_jsonFilePath)) {
-        fmt::println("PyramidImage::scan: _jsonFilePath does not exist: {}", _tiffFilePath.toStdString());
+    if (!std::filesystem::exists(_jsonFilePath.toStdString())) {
+        fmt::println("PyramidImage::scan: _jsonFilePath does not exist: {}", _jsonFilePath.toStdString());
         return;
     }
 
@@ -607,7 +607,7 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
     _tiffFilePath = variantMap[SID_tiffFilePath].toString();
     _jsonFilePath = variantMap[SID_jsonFilePath].toString();
 
-    if (QFileInfo::exists(_tiffFilePath) && QFileInfo::exists(_jsonFilePath)) {
+    if (std::filesystem::exists(_tiffFilePath.toStdString()) && std::filesystem::exists(_jsonFilePath.toStdString())) {
         scan();
     }
     else {

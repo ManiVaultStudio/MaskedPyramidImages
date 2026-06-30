@@ -18,6 +18,27 @@ find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
 
+# Force FindZLIB to discover vcpkg's copy and create the ZLIB::ZLIB imported target
+if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+    set(ZLIB_ROOT "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}" CACHE PATH "vcpkg zlib root" FORCE)
+    set(ZLIB_INCLUDE_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include" CACHE PATH "" FORCE)
+endif()
+
+find_package(ZLIB REQUIRED)
+
+# Workaround: FindZLIB on Linux CI can set ZLIB_FOUND=1 but leave
+# ZLIB_LIBRARIES empty and fails to create the ZLIB::ZLIB imported target.
+# Detect and repair this case before find_package(TIFF) runs.
+if(NOT TARGET ZLIB::ZLIB)
+    message(STATUS "ZLIB::ZLIB target missing despite ZLIB_FOUND=${ZLIB_FOUND}, creating manually")
+    find_library(ZLIB_LIBRARY_MANUAL NAMES z zlib zlib_static REQUIRED)
+    add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+    set_target_properties(ZLIB::ZLIB PROPERTIES
+        IMPORTED_LOCATION             "${ZLIB_LIBRARY_MANUAL}"
+        INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}"
+    )
+endif()
+
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
@@ -26,7 +47,7 @@ if(MV_MIPYR_USE_OPENMP)
     find_package(OpenMP)
 
     if(OpenMP_CXX_FOUND)
-        message(STATUS "UMAPAnalysisPlugin: Found OpenMP")
+        message(STATUS "MaskedPyramidImages: Found OpenMP")
     endif()
 endif()
 
