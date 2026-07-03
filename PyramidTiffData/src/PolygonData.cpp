@@ -157,9 +157,9 @@ namespace PyramidTiffData {
             }
         }
 
-        assert(pixel_counts_.size() == names_.size());
-        assert(names_.size() == colors_.size());
-        assert(colors_.size() == polygons_.size());
+        assert(_pixel_counts.size() == _names.size());
+        assert(_names.size() == _colors.size());
+        assert(_colors.size() == _polygons.size());
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor) const
