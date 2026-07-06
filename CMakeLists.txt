@@ -30,13 +30,20 @@ find_package(ZLIB REQUIRED)
 # ZLIB_LIBRARIES empty and fails to create the ZLIB::ZLIB imported target.
 # Detect and repair this case before find_package(TIFF) runs.
 if(NOT TARGET ZLIB::ZLIB)
-    message(STATUS "ZLIB::ZLIB target missing despite ZLIB_FOUND=${ZLIB_FOUND}, creating manually")
+    message(STATUS "MaskedPyramidImages: ZLIB::ZLIB target missing despite ZLIB_FOUND=${ZLIB_FOUND}, creating manually")
     find_library(ZLIB_LIBRARY_MANUAL NAMES z zlib zlib_static REQUIRED)
     add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
     set_target_properties(ZLIB::ZLIB PROPERTIES
         IMPORTED_LOCATION             "${ZLIB_LIBRARY_MANUAL}"
         INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}"
     )
+endif()
+
+# ManiVault core drags in zstd. When build in one project, e.g. in the "DevBundle"
+# we want to use the already existing zlib_static target and introduce it to vcpkg dependencies
+if(TARGET libzstd_static)
+    message(STATUS "MaskedPyramidImages: Creating alias zstd::libzstd_static -> libzstd_static")
+    add_library(zstd::libzstd_static ALIAS libzstd_static)
 endif()
 
 find_package(fmt CONFIG REQUIRED)
