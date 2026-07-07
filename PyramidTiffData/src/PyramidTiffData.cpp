@@ -274,6 +274,7 @@ void PyramidImage::init()
         case EventType::DatasetDataSelectionChanged:
         {
             if (itData == _levelDatasets.end()) return;
+
             selectionMapping(dataEvent->getDataset());
 
             break;
@@ -346,17 +347,39 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
 
         // Map from base to level
         if (toLevel != fromLevel) {
-        	auto levelIndices = convertSelectionToDownscaled(baseIndices, 
+            toLevelData->getSelection<Points>()->indices = 
+                convertSelectionToDownscaled(baseIndices,
                 baseWidth, baseHeigh,
                 toLevelWidth, toLevelHeigh);
-            toLevelData->getSelection<Points>()->indices.swap(levelIndices);
         }
         else {
             toLevelData->getSelection<Points>()->indices = selectionIDs->indices;
         }
 
         _selectionCounter.at(toLevelID) = 1;
+
     	events().notifyDatasetDataSelectionChanged(toLevelData);
+
+        // The ManiVault's core EventManager polls every ~20ms 
+        // if a dataset is marked as containing a changed selection.
+        // We need to mark the derived data of toLevelData to ensure
+        // that they are updated in the same poll. Otherwise, they
+        // will falsely be marked as already handled
+        for (auto candidateDataset : mv::data().getAllDatasets()) {
+
+            if (candidateDataset == selectionInputPoints || 
+                candidateDataset == toLevelData)
+                continue;
+
+            const bool isDerived  = candidateDataset->isDerivedData() && candidateDataset->getSourceDataset<DatasetImpl>()->getRawDataName() == toLevelData->getSourceDataset<DatasetImpl>()->getRawDataName();
+            const bool hasSameRaw = candidateDataset->getRawDataName() == toLevelData->getRawDataName();
+            const bool isProxy    = candidateDataset->isProxy() && candidateDataset->getProxyMembers().contains(toLevelData);
+
+            if (isDerived || hasSameRaw || isProxy) {
+                events().notifyDatasetDataSelectionChanged(candidateDataset);
+            }
+        }
+
     }
 
 }

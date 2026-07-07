@@ -18,9 +18,6 @@
 
 class PyramidInfoAction;
 
-// TODO:
-// - fix: mapping from low level (4) to derived data (PCA) of high level (3) does not work 
-
 // =============================================================================
 // Data (Raw)
 // =============================================================================
@@ -223,7 +220,7 @@ private:
     QString _tiffFilePath = {};
     QString _jsonFilePath = {};
     QSharedPointer<PyramidInfoAction> _infoAction = {};                                     /** Shared pointer to info action */
-    std::unordered_map<QString, std::pair<mv::Dataset<>, uint32_t>> _levelDatasets = {};     /** Helper data set for selection */
+    std::unordered_map<QString, std::pair<mv::Dataset<>, uint32_t>> _levelDatasets = {};    /** Helper data set for selection */
     std::unordered_map<QString, uint8_t> _selectionCounter = {};
     mv::EventListener _eventListener = {};                                                  /** Listen to ManiVault events */
 };
