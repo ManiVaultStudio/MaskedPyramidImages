@@ -357,6 +357,27 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
 
         _selectionCounter.at(toLevelID) = 1;
     	events().notifyDatasetDataSelectionChanged(toLevelData);
+
+        // The ManiVault's core EventManager polls every ~20ms 
+        // if a dataset is marked as containing a changed selection.
+        // We need to mark the derived data of toLevelData to ensure
+        // that they are updated in the same poll. Otherwise, they
+        // will falsely be marked as already handled
+        for (auto candidateDataset : mv::data().getAllDatasets()) {
+
+            if (candidateDataset == selectionInputPoints || 
+                candidateDataset == toLevelData)
+                continue;
+
+            const bool isDerived  = candidateDataset->isDerivedData() && candidateDataset->getSourceDataset<DatasetImpl>()->getRawDataName() == toLevelData->getSourceDataset<DatasetImpl>()->getRawDataName();
+            const bool hasSameRaw = candidateDataset->getRawDataName() == toLevelData->getRawDataName();
+            const bool isProxy    = candidateDataset->isProxy() && candidateDataset->getProxyMembers().contains(toLevelData);
+
+            if (isDerived || hasSameRaw || isProxy) {
+                events().notifyDatasetDataSelectionChanged(candidateDataset);
+            }
+        }
+
     }
 
 }
