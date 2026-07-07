@@ -346,10 +346,10 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
 
         // Map from base to level
         if (toLevel != fromLevel) {
-        	auto levelIndices = convertSelectionToDownscaled(baseIndices, 
+            toLevelData->getSelection<Points>()->indices = 
+                convertSelectionToDownscaled(baseIndices,
                 baseWidth, baseHeigh,
                 toLevelWidth, toLevelHeigh);
-            toLevelData->getSelection<Points>()->indices.swap(levelIndices);
         }
         else {
             toLevelData->getSelection<Points>()->indices = selectionIDs->indices;
