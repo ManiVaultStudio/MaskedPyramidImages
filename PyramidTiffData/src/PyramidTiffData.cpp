@@ -274,6 +274,7 @@ void PyramidImage::init()
         case EventType::DatasetDataSelectionChanged:
         {
             if (itData == _levelDatasets.end()) return;
+
             selectionMapping(dataEvent->getDataset());
 
             break;
@@ -356,6 +357,7 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
         }
 
         _selectionCounter.at(toLevelID) = 1;
+
     	events().notifyDatasetDataSelectionChanged(toLevelData);
 
         // The ManiVault's core EventManager polls every ~20ms 
