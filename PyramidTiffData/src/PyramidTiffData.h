@@ -18,9 +18,6 @@
 
 class PyramidInfoAction;
 
-// TODO:
-// - fix: mapping from low level (4) to derived data (PCA) of high level (3) does not work 
-
 // =============================================================================
 // Data (Raw)
 // =============================================================================
