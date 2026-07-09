@@ -48,6 +48,7 @@ endif()
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(simdjson CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 
 if(MV_MIPYR_USE_OPENMP)
