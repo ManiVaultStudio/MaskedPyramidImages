@@ -563,8 +563,7 @@ bool PyramidImage::canSelectAll() const
     if (_levelDatasets.empty())
         return false;
 
-    const mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
-    return firstData->canSelectAll();
+    return _levelDatasets.begin()->second.first->canSelectAll();
 }
 
 bool PyramidImage::canSelectNone() const
@@ -572,8 +571,7 @@ bool PyramidImage::canSelectNone() const
     if (_levelDatasets.empty())
         return false;
 
-    const mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
-    return firstData->canSelectNone();
+    return _levelDatasets.begin()->second.first->canSelectNone();
 }
 
 bool PyramidImage::canSelectInvert() const
@@ -581,8 +579,7 @@ bool PyramidImage::canSelectInvert() const
     if (_levelDatasets.empty())
         return false;
 
-    const mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
-    return firstData->canSelectInvert();
+    return _levelDatasets.begin()->second.first->canSelectInvert();
 }
 
 void PyramidImage::selectAll()
@@ -590,8 +587,7 @@ void PyramidImage::selectAll()
     if (!canSelectAll())
         return;
 
-    mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
-    firstData->selectAll();
+    _levelDatasets.begin()->second.first->selectAll();
 }
 
 void PyramidImage::selectNone()
@@ -599,8 +595,9 @@ void PyramidImage::selectNone()
     if (!canSelectNone())
         return;
 
-    mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
-    firstData->selectNone();
+	_selectionCount = 0;
+
+    _levelDatasets.begin()->second.first->selectNone();
 }
 
 void PyramidImage::selectInvert()
@@ -608,8 +605,7 @@ void PyramidImage::selectInvert()
     if (!canSelectInvert())
         return;
 
-    mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
-    firstData->selectInvert();
+    _levelDatasets.begin()->second.first->selectInvert();
 }
 
 void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
