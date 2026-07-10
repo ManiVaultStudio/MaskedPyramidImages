@@ -19,6 +19,27 @@
 #include <jsoncons/json_cursor.hpp>
 #include <jsoncons/json_encoder.hpp>
 
+namespace jsoncons {
+    template<class Json>
+    struct json_type_traits<Json, PyramidTiffData::Point2D> {
+        static bool is(const Json& j) {
+            return j.is_array() && j.size() >= 2;
+        }
+
+        static PyramidTiffData::Point2D as(const Json& j) {
+            // Use .template as<T>() when inside a template traits class
+            return { j[0].template as<uint32_t>(), j[1].template as<uint32_t>() };
+        }
+
+        static Json to_json(const PyramidTiffData::Point2D& p) {
+            Json j(json_array_arg);
+            j.push_back(p.x);
+            j.push_back(p.y);
+            return j;
+        }
+    };
+}
+
 using namespace jsoncons;
 
 void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath, int file_number) {
@@ -43,7 +64,6 @@ void create_output_file(const std::vector<ojson>& features_buffer, const std::fi
 
             if (coords.is_array() && !coords.empty()) {
                 try {
-                    const auto& a = coords[0];
                     const auto points = coords[0].as<std::vector<PyramidTiffData::Point2D>>();
 
                     for (const auto& pt : points) {
