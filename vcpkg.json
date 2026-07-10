@@ -18,7 +18,7 @@
       ]
     }
   ],
-  "builtin-baseline":"56bb2411609227288b70117ead2c47585ba07713",
+  "builtin-baseline":"cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3",
   "overrides": [
     { "name": "jsoncons", "version": "1.8.1#0" },
     { "name": "libdeflate", "version": "1.25#0" },
