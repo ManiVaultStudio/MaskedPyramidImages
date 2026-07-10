@@ -192,7 +192,7 @@ public: // Selection
     /** Invert item selection */
     void selectInvert() override;
 
-    void selectionMapping(const mv::Dataset<>& input);
+    void selectionMapping(const mv::Dataset<>& selectionInputData);
 
 public:
     std::vector<std::uint32_t> selection = {};
@@ -221,7 +221,7 @@ private:
     QString _jsonFilePath = {};
     QSharedPointer<PyramidInfoAction> _infoAction = {};                                     /** Shared pointer to info action */
     std::unordered_map<QString, std::pair<mv::Dataset<>, uint32_t>> _levelDatasets = {};    /** Helper data set for selection */
-    std::unordered_map<QString, uint8_t> _selectionCounter = {};
+    uint32_t _selectionCount = 0;
     mv::EventListener _eventListener = {};                                                  /** Listen to ManiVault events */
 };
 

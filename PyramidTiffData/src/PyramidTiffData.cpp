@@ -263,9 +263,6 @@ void PyramidImage::init()
 
             if (itData != _levelDatasets.end())
                 _levelDatasets.erase(itData);
-                        
-            if (const auto itSelection = _selectionCounter.find(datasetID); itSelection != _selectionCounter.end())
-                _selectionCounter.erase(itSelection);
 
             selectNone();
 
@@ -287,30 +284,28 @@ void PyramidImage::init()
 
 }
 
-void PyramidImage::selectionMapping(const mv::Dataset<>& input)
+void PyramidImage::selectionMapping(const mv::Dataset<>& selectionInputData)
 {
-    // Get level info
-	const mv::Dataset<Points> selectionInputPoints = input;
-    const auto fromLevelID = selectionInputPoints.getDatasetId();
+    if (_levelDatasets.size() <= 1)
+        return;
 
-    if (_selectionCounter.at(fromLevelID) > 0) {
+    _selectionCount++;
 
-        // Have all datasets been handled? Then reset the counter
-    	uint32_t selectionCount = 0;
-        for (const auto count : std::views::values(_selectionCounter))
-            selectionCount += count;
-
-        if (selectionCount == _selectionCounter.size()) {
-            for (auto& count : std::views::values(_selectionCounter)) {
-                count = 0;
-            }
-        }
-
+    // return early if the current selection has already been handled
+    // this plugin listens to selection notifications for all data in _levelDatasets
+    // it then maps the selection from the input data to all other data in _levelDatasets
+    // the core will then notify the plugin about those selection, but we do not need
+    // to handle them anymore here. a counter prevents such recursive mapping
+    if (_selectionCount >= _levelDatasets.size()) {
+        _selectionCount = 0;
         return;
     }
 
-    _selectionCounter.at(fromLevelID) = 1;
+    if (_selectionCount > 1) {
+        return;
+    }
 
+    const auto fromLevelID = selectionInputData.getDatasetId();
     const auto& [selectionLevelData, fromLevel] = _levelDatasets.at(fromLevelID);
 	assert(selectionLevelData.getDatasetId() == fromLevelID);
 
@@ -324,7 +319,7 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
     const uint32_t fromLevelHeigh = levelInfos[fromLevel].height;
 
 	// Map from level to base
-    mv::Dataset<Points> selectionIDs = selectionInputPoints->getSelection();
+    mv::Dataset<Points> selectionIDs = selectionInputData->getSelection();
 
     sortAndUnique(selectionIDs->indices);
 
@@ -353,10 +348,8 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
                 toLevelWidth, toLevelHeigh);
         }
         else {
-            toLevelData->getSelection<Points>()->indices = selectionIDs->indices;
+            toLevelData->getSelection<Points>()->indices = baseIndices;
         }
-
-        _selectionCounter.at(toLevelID) = 1;
 
     	events().notifyDatasetDataSelectionChanged(toLevelData);
 
@@ -365,9 +358,9 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& input)
         // We need to mark the derived data of toLevelData to ensure
         // that they are updated in the same poll. Otherwise, they
         // will falsely be marked as already handled
-        for (auto candidateDataset : mv::data().getAllDatasets()) {
+        for (const auto& candidateDataset : mv::data().getAllDatasets()) {
 
-            if (candidateDataset == selectionInputPoints || 
+            if (candidateDataset == selectionInputData ||
                 candidateDataset == toLevelData)
                 continue;
 
@@ -488,7 +481,6 @@ void PyramidImage::read_level()
     // 1. Publish Image data //
     auto pointsDataset = mv::data().createDataset<Points>(QStringLiteral("Points"), QString("Level (%1)").arg(selectedLevel), this);
     _levelDatasets.insert({ pointsDataset.getDatasetId(), { pointsDataset, selectedLevel } });
-    _selectionCounter.insert({ pointsDataset.getDatasetId(), 0 });
 
     pointsDataset->setData(std::move(imageDataValues), lvlNumChannels);
     pointsDataset->setDimensionNames(channelNames);
@@ -641,7 +633,6 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
 
     {
         for (const auto [dataID, selectionCount] : variantMap[SID_levelDatasets].toMap().asKeyValueRange()) {
-            _selectionCounter[dataID] = 0;
             _levelDatasets[dataID] = std::make_pair(
                 mv::data().getDataset(dataID),
                 static_cast<uint32_t>(selectionCount.toUInt())
