@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "dependencies": [
     "fmt",
+    "jsoncons",
     "nlohmann-json",
     "simdjson",
     {
@@ -19,6 +20,7 @@
   ],
   "builtin-baseline":"56bb2411609227288b70117ead2c47585ba07713",
   "overrides": [
+    { "name": "jsoncons", "version": "1.8.1#0" },
     { "name": "libdeflate", "version": "1.25#0" },
     { "name": "libjpeg-turbo", "version": "3.1.4.1#0" },
     { "name": "liblzma", "version": "5.8.3#0" },
