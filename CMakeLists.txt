@@ -48,7 +48,6 @@ endif()
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(simdjson CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(jsoncons REQUIRED)
 

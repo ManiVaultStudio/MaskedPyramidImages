@@ -23,6 +23,5 @@ target_link_libraries(tifftest
         fmt::fmt
         TIFF::TIFF
         nlohmann_json::nlohmann_json
-        simdjson::simdjson
         jsoncons::jsoncons
 )
