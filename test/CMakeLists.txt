@@ -22,6 +22,5 @@ target_link_libraries(tifftest
     PRIVATE
         fmt::fmt
         TIFF::TIFF
-        nlohmann_json::nlohmann_json
         jsoncons::jsoncons
 )

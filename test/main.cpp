@@ -1,7 +1,6 @@
 #include "OmeTiffPyramid.h"
 #include "PolygonData.h"
 
-#include <cctype>
 #include <fstream>
 #include <filesystem>
 #include <ranges>
@@ -13,7 +12,6 @@
 #include <fmt/format.h>
 #include <fmt/std.h>
 
-#include <nlohmann/json.hpp>
 #include <jsoncons/basic_json.hpp>
 #include <jsoncons/json_cursor.hpp>
 #include <jsoncons/json_encoder.hpp>
@@ -194,27 +192,22 @@ int main(int argc, char* argv[]) {
         // read a JSON file
         std::ifstream loadFile(json_path, std::ios::in);
         if (!loadFile.is_open()) return 1;
-        //const nlohmann::json geojson = nlohmann::json::parse(loadFile);
 
-        //// read image
-        //const PyramidTiffData::OmeTiffPyramid tiffReader(img_path);
-        //tiffReader.print_info();
+        // read image
+        const PyramidTiffData::OmeTiffPyramid tiffReader(img_path);
+        tiffReader.print_info();
 
-        //// read polygon mask
-        //const PyramidTiffData::PolygonData jsonReader(json_path, tiffReader.series().width, tiffReader.series().height);
-        //jsonReader.print_info();
+        // read polygon mask
+        const PyramidTiffData::PolygonData jsonReader(json_path, tiffReader.series().width, tiffReader.series().height);
+        jsonReader.print_info();
 
-        //// write images
-        //constexpr size_t current_series = 0;
-        //const auto current_channel = tiffReader.num_levels(current_series) - 1;
-        //const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_channel);
+        // write images
+        constexpr size_t current_series = 0;
+        const auto current_channel = tiffReader.num_levels(current_series) - 1;
+        const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_channel);
 
-        //PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_channel));
+        PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_channel));
     }
-	catch (const nlohmann::detail::parse_error& err) {
-	   fmt::print("PyramidImageData::scan: json parse error: {}", err.what());
-	   return 1;
-	}
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());
         return 1;

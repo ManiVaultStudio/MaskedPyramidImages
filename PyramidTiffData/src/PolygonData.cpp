@@ -15,7 +15,29 @@
 #include <fmt/base.h>
 #include <fmt/std.h>
 
-#include <nlohmann/json.hpp>
+#include <jsoncons/json.hpp>
+#include <jsoncons/json_cursor.hpp>
+
+namespace jsoncons {
+    template<class Json>
+    struct json_type_traits<Json, PyramidTiffData::Point2D> {
+        static bool is(const Json& j) {
+            return j.is_array() && j.size() >= 2;
+        }
+
+        static PyramidTiffData::Point2D as(const Json& j) {
+            // Use .template as<T>() when inside a template traits class
+            return { j[0].template as<uint32_t>(), j[1].template as<uint32_t>() };
+        }
+
+        static Json to_json(const PyramidTiffData::Point2D& p) {
+            Json j(json_array_arg);
+            j.push_back(p.x);
+            j.push_back(p.y);
+            return j;
+        }
+    };
+}
 
 namespace PyramidTiffData {
 
@@ -106,55 +128,102 @@ namespace PyramidTiffData {
     void PolygonData::parse_mask_annotations(const std::filesystem::path& path)
     {
         std::ifstream f(path);
-        nlohmann::json data;
-		try {
-            data = nlohmann::json::parse(f);
-		}
-		catch (const nlohmann::detail::parse_error& err) {
-		   fmt::print("PyramidImageData::scan: json parse error: {}", err.what());
-		   return;
-		}
-
-        if (!data.contains("features")) {
-            fmt::print("PyramidImageData::scan: json does not contain features field");
+        if (!f.is_open()) {
+            fmt::print("PolygonData::parse_mask_annotations: could not open {}", path.string());
             return;
         }
 
-        int unnamedChannelCounter = 0;
-    	for (const auto& feature : data["features"]) {
-            
-    		if (feature.contains("properties") && feature["properties"].contains("name")) {
-    			_names.push_back(feature["properties"]["name"].get<std::string>());
-    		}
-            else {
-                _names.push_back(fmt::format("Channel {}", unnamedChannelCounter++));
-            }
+        bool found_features = false;
 
-            if (feature.contains("properties") &&
-                feature["properties"].contains("classification") &&
-                feature["properties"]["classification"].contains("color"))
+        try {
+            jsoncons::json_stream_cursor cursor(f);
+
+            int unnamed_channel_counter = 0;
+            bool in_features_array = false;
+
+            for (; !cursor.done(); cursor.next())
             {
-                const auto feat_color = feature["properties"]["classification"]["color"].get<std::vector<int>>();
-                _colors.push_back({
-                    static_cast<uint8_t>(feat_color[0]),
-                    static_cast<uint8_t>(feat_color[1]),
-                    static_cast<uint8_t>(feat_color[2])
-                    });
-            }
-            else {
-                _colors.push_back({ 128, 128, 128 });
-            }
-        
-            if (feature.contains("geometry") && feature["geometry"].contains("coordinates")) {
-                std::vector<Point2D>& poly_points = _polygons.emplace_back();
-                const auto feat_coordinates = feature["geometry"]["coordinates"][0];
-                poly_points.reserve(feat_coordinates.size());
-                for (const auto& coords : feat_coordinates) {
-                    poly_points.push_back({ .x = coords[0].get<uint32_t>(), .y = coords[1].get<uint32_t>() });
+                const auto& event = cursor.current();
+                switch (event.event_type())
+                {
+                case jsoncons::staj_event_type::key:
+                {
+                    const auto key = event.get<jsoncons::string_view>();
+                    if (key == "features") {
+                        in_features_array = true;
+                        found_features = true;
+                    }
+                    break;
                 }
-                rasterize_polygon(poly_points, _img_width, _img_height, _all_positive_indices, _pixel_counts);
+                case jsoncons::staj_event_type::begin_object:
+                {
+                    if (!in_features_array) {
+                        break; // e.g. the document's own root object
+                    }
 
+                    // Pull exactly one "feature" object into memory, process it,
+                    //  then let it go out of scope, the rest of the file stays unread.
+                    jsoncons::json_decoder<jsoncons::json> decoder;
+                    cursor.read_to(decoder);
+                    const jsoncons::json feature = decoder.get_result();
+
+                    if (feature.contains("properties") && feature.at("properties").contains("name")) {
+                        _names.push_back(feature.at("properties").at("name").as<std::string>());
+                    }
+                    else {
+                        _names.push_back(fmt::format("Channel {}", unnamed_channel_counter++));
+                    }
+
+                    if (feature.contains("properties") &&
+                        feature.at("properties").contains("classification") &&
+                        feature.at("properties").at("classification").contains("color"))
+                    {
+                        const auto feat_color = feature.at("properties").at("classification").at("color")
+                            .as<std::vector<int>>();
+                        _colors.push_back({
+                            static_cast<uint8_t>(feat_color[0]),
+                            static_cast<uint8_t>(feat_color[1]),
+                            static_cast<uint8_t>(feat_color[2])
+                            });
+                    }
+                    else {
+                        _colors.push_back({ 128, 128, 128 });
+                    }
+
+                    if (feature.contains("geometry") && feature.at("geometry").contains("coordinates")) {
+                        std::vector<Point2D>& poly_points = _polygons.emplace_back();
+                        const auto& feat_coordinates = feature.at("geometry").at("coordinates").at(0);
+                        poly_points.reserve(feat_coordinates.size());
+                        for (const auto& coords : feat_coordinates.array_range()) {
+                            poly_points.push_back(coords.as<Point2D>());
+                        }
+                        rasterize_polygon(poly_points, _img_width, _img_height, _all_positive_indices, _pixel_counts);
+                    }
+                    else {
+                        _polygons.emplace_back(); // keep vectors aligned even with no geometry
+                    }
+                    break;
+                }
+                case jsoncons::staj_event_type::end_array:
+                {
+                    if (in_features_array) {
+                        in_features_array = false;
+                    }
+                    break;
+                }
+                default:
+                    break;
+                }
             }
+        }
+        catch (const std::exception& err) {
+            fmt::print("PolygonData::parse_mask_annotations: json parse error: {}", err.what());
+            return;
+        }
+
+        if (!found_features) {
+            fmt::print("PolygonData::parse_mask_annotations: json does not contain features field");
+            return;
         }
 
         assert(_pixel_counts.size() == _names.size());
