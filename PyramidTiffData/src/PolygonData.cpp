@@ -276,10 +276,10 @@ namespace PyramidTiffData {
             return;
         }
 
-        assert(_pixel_counts.size() == _names.size());
-        assert(_names.size() == _colors.size());
-        assert(_colors.size() == _polygons_roi.size());
+        assert(_names_roi.size() == _colors_roi.size());
+        assert(_colors_roi.size() == _polygons_roi.size());
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
+        assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMaskRoi(const double scaleFactor) const
@@ -330,7 +330,7 @@ namespace PyramidTiffData {
         positive_indices.shrink_to_fit();
         pixel_counts.shrink_to_fit();
 
-        assert(positive_indices_scaled.size() == std::reduce(pixel_counts_scaled.begin(), pixel_counts_scaled.end(), 0ull));
+        assert(positive_indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
 
         return { positive_indices , pixel_counts };
     }
