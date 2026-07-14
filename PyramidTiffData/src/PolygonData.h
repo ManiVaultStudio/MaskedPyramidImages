@@ -21,7 +21,8 @@ namespace PyramidTiffData
         bool operator!=(const Point2D&) const = default;
     };
 
-    void rasterize_polygon(const std::vector<Point2D>& points, const uint32_t img_width, const uint32_t img_height,
+    void rasterize_polygon(const std::vector<Point2D>& points, 
+        const uint32_t img_width, const uint32_t img_height,
         std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts);
 
     // =============================================================================
@@ -42,7 +43,8 @@ namespace PyramidTiffData
 
         void init(const std::filesystem::path& path, const uint32_t img_width, const uint32_t img_height);
 
-        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(const double scaleFactor) const;
+        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMaskRoi(const double scaleFactor) const;
+        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMaskTissue(const double scaleFactor) const;
 
     public: // getter
         [[nodiscard]] uint32_t img_width() const noexcept {
@@ -51,30 +53,36 @@ namespace PyramidTiffData
         [[nodiscard]] uint32_t img_height() const noexcept {
             return _img_height;
         }
-        [[nodiscard]] const std::vector<uint32_t>& all_positive_indices() const noexcept {
-            return _all_positive_indices;
+        [[nodiscard]] const std::vector<std::string>& names_roi() const noexcept {
+            return _names_roi;
         }
-        [[nodiscard]] const std::vector<uint32_t>& pixel_counts() const noexcept {
-            return _pixel_counts;
+        [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_roi() const noexcept {
+            return _colors_roi;
         }
-        [[nodiscard]] const std::vector<std::string>& names() const noexcept {
-            return _names;
+        [[nodiscard]] const std::vector<std::string>& names_tissue() const noexcept {
+            return _names_tissue;
         }
-        [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors() const noexcept {
-            return _colors;
+        [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_tissue() const noexcept {
+            return _colors_tissue;
         }
 
     private:
         void parse_mask_annotations(const std::filesystem::path& path);
+        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(const double scaleFactor, const std::vector<std::vector<Point2D>>& polygons_roi) const;
 
     private:
         uint32_t _img_width{};
         uint32_t _img_height{};
-        std::vector<uint32_t> _all_positive_indices{};
-        std::vector<uint32_t> _pixel_counts{};
-        std::vector<std::string> _names{};
-        std::vector<std::array<uint8_t, 3>> _colors{};
-        std::vector<std::vector<Point2D>> _polygons{};
+
+        std::vector<std::string> _names_roi{};
+        std::vector<std::string> _names_tissue{};
+
+        std::vector<std::array<uint8_t, 3>> _colors_roi{};
+        std::vector<std::array<uint8_t, 3>> _colors_tissue{};
+
+        std::vector<std::vector<Point2D>> _polygons_roi{};
+        std::vector<std::vector<Point2D>> _polygons_tissue{};
+        std::vector<std::vector<Point2D>> _polygons_membrane{};     // not yet used
     };
 
 } // namespace PyramidTiffData

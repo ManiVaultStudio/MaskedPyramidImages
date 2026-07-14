@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <stdio.h>
+
 #ifndef NDEBUG
 #include <numeric>
 #endif
@@ -129,7 +131,7 @@ namespace PyramidTiffData {
     {
         std::ifstream f(path);
         if (!f.is_open()) {
-            fmt::print("PolygonData::parse_mask_annotations: could not open {}", path.string());
+            fmt::println("PolygonData::parse_mask_annotations: could not open {}", path.string());
             return;
         }
 
@@ -138,8 +140,13 @@ namespace PyramidTiffData {
         try {
             jsoncons::json_stream_cursor cursor(f);
 
-            int unnamed_channel_counter = 0;
+            int unnamed_roi_counter = 0;
+            int unnamed_tissue_counter = 0;
             bool in_features_array = false;
+
+            uintmax_t last_pct = -1;
+            const uintmax_t total_bytes = std::filesystem::file_size(path);
+            jsoncons::json_decoder<jsoncons::json> decoder;
 
             for (; !cursor.done(); cursor.next())
             {
@@ -162,46 +169,67 @@ namespace PyramidTiffData {
                     }
 
                     // Pull exactly one "feature" object into memory, process it,
-                    //  then let it go out of scope, the rest of the file stays unread.
-                    jsoncons::json_decoder<jsoncons::json> decoder;
+                    // then let it go out of scope, the rest of the file stays unread.
                     cursor.read_to(decoder);
                     const jsoncons::json feature = decoder.get_result();
 
-                    if (feature.contains("properties") && feature.at("properties").contains("name")) {
-                        _names.push_back(feature.at("properties").at("name").as<std::string>());
-                    }
-                    else {
-                        _names.push_back(fmt::format("Channel {}", unnamed_channel_counter++));
-                    }
+                    if (!feature.contains("properties") ||
+                        !feature.at("properties").contains("classification") ||
+                        !feature.at("properties").at("classification").contains("name"))
+                        break;
 
-                    if (feature.contains("properties") &&
-                        feature.at("properties").contains("classification") &&
-                        feature.at("properties").at("classification").contains("color"))
+                    const std::string maskType = feature.at("properties").at("classification").at("name").as<std::string>();
+
+                    if (maskType == "ROI")
                     {
-                        const auto feat_color = feature.at("properties").at("classification").at("color")
-                            .as<std::vector<int>>();
-                        _colors.push_back({
-                            static_cast<uint8_t>(feat_color[0]),
-                            static_cast<uint8_t>(feat_color[1]),
-                            static_cast<uint8_t>(feat_color[2])
-                            });
+                        if (feature.at("properties").contains("name")) {
+                            _names_roi.push_back(feature.at("properties").at("name").as<std::string>());
+                        }
+                        else {
+                            _names_roi.push_back(fmt::format("ROI {}", unnamed_roi_counter++));
+                        }
                     }
-                    else {
-                        _colors.push_back({ 128, 128, 128 });
+                    else if (maskType == "TISSUE")
+                    {
+                        if (feature.contains("id")) {
+                            _names_tissue.push_back(feature.at("id").as<std::string>());
+                        }
+                        else {
+                            _names_tissue.push_back(fmt::format("TISSUE {}", unnamed_tissue_counter++));
+                        }
+                    }
+                    else
+                    {
+                        fmt::println("PolygonData::parse_mask_annotations: json feature does not contain ROI or TISSUE");
+                        break;
                     }
 
-                    if (feature.contains("geometry") && feature.at("geometry").contains("coordinates")) {
-                        std::vector<Point2D>& poly_points = _polygons.emplace_back();
+                    std::vector<Point2D>& poly_points = (maskType == "ROI") 
+                		? _polygons_roi.emplace_back()
+                		: _polygons_tissue.emplace_back();
+
+                	if (feature.contains("geometry") && feature.at("geometry").contains("coordinates")) {
                         const auto& feat_coordinates = feature.at("geometry").at("coordinates").at(0);
                         poly_points.reserve(feat_coordinates.size());
                         for (const auto& coords : feat_coordinates.array_range()) {
                             poly_points.push_back(coords.as<Point2D>());
                         }
-                        rasterize_polygon(poly_points, _img_width, _img_height, _all_positive_indices, _pixel_counts);
+                    }
+
+                    // TODO: handle cell, which contains "geometry" and "nucleusGeometry", 
+                    //       but "properties" does not have a "name"
+
+                    if (feature.at("properties").contains("classification") &&
+                        feature.at("properties").at("classification").contains("color"))
+                    {
+                        const auto feat_color = feature.at("properties").at("classification").at("color")
+                            .as<std::vector<uint8_t>>();
+                        _colors_roi.push_back({ feat_color[0], feat_color[1], feat_color[2] });
                     }
                     else {
-                        _polygons.emplace_back(); // keep vectors aligned even with no geometry
+                        _colors_roi.push_back({ 128, 128, 128 });
                     }
+
                     break;
                 }
                 case jsoncons::staj_event_type::end_array:
@@ -214,7 +242,23 @@ namespace PyramidTiffData {
                 default:
                     break;
                 }
+
+                // Progress bar - update only when the percentage actually changes,
+				// so we're not flooding stdout on every event.
+                const uintmax_t bytes_read = static_cast<std::uintmax_t>(f.tellg());
+                const uintmax_t pct = total_bytes > 0
+                    ? static_cast<int>((bytes_read * 100) / total_bytes)
+                    : 0;
+                if (pct != last_pct) {
+                    last_pct = pct;
+                    constexpr uintmax_t bar_width = 40;
+                    const int filled = static_cast<int>(static_cast<double>(bar_width * pct) / 100.0);
+                    fmt::print("\r[{:=<{}}{: <{}}] {:3}%",
+                        "", filled, "", bar_width - filled, pct);
+                    fflush(stdout);
+                }
             }
+            fmt::print("\n"); // move past the progress line once done
         }
         catch (const std::exception& err) {
             fmt::print("PolygonData::parse_mask_annotations: json parse error: {}", err.what());
@@ -228,23 +272,25 @@ namespace PyramidTiffData {
 
         assert(_pixel_counts.size() == _names.size());
         assert(_names.size() == _colors.size());
-        assert(_colors.size() == _polygons.size());
+        assert(_colors.size() == _polygons_roi.size());
+        assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMaskRoi(const double scaleFactor) const
     {
-        if (scaleFactor == 1.0) {
-            return { _all_positive_indices , _pixel_counts };
-        }
+        return downscaleMask(scaleFactor, _polygons_roi);
+    }
 
-        std::vector<uint32_t> positive_indices_scaled;
-        std::vector<uint32_t> pixel_counts_scaled;
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMaskTissue(const double scaleFactor) const
+    {
+        return downscaleMask(scaleFactor, _polygons_tissue);
+    }
 
-        positive_indices_scaled.reserve(static_cast<size_t>(static_cast<double>(_all_positive_indices.size()) * scaleFactor));
-        pixel_counts_scaled.reserve(_polygons.size());
-        
-    	const uint32_t img_width_scaled = static_cast<uint32_t>(static_cast<double>(_img_width) * scaleFactor);
-        const uint32_t img_height_scaled = static_cast<uint32_t>(static_cast<double>(_img_height) * scaleFactor);
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor, 
+        const std::vector<std::vector<Point2D>>& polygons_roi) const
+    {
+        std::vector<uint32_t> positive_indices{};
+        std::vector<uint32_t> pixel_counts{};
 
         auto scale_coords = [](const std::vector<Point2D>& points, const double scaleFactor) -> std::vector<Point2D> {
             std::vector<Point2D> points_scaled(points.size());
@@ -257,43 +303,53 @@ namespace PyramidTiffData {
             }
 
             return points_scaled;
-        };
+            };
 
-        for (const auto& coords : _polygons) {
-            const auto coords_scaled = scale_coords(coords, scaleFactor);
-            rasterize_polygon(coords_scaled, img_width_scaled, img_height_scaled, positive_indices_scaled, pixel_counts_scaled);
+        if (scaleFactor == 1.0) {
+            for (const auto& coords : polygons_roi) {
+                rasterize_polygon(coords, _img_width, _img_height, positive_indices, pixel_counts);
+            }
+        }
+        else
+        {
+            const uint32_t img_width_scaled     = static_cast<uint32_t>(static_cast<double>(_img_width) * scaleFactor);
+            const uint32_t img_height_scaled    = static_cast<uint32_t>(static_cast<double>(_img_height) * scaleFactor);
+
+            for (const auto& coords : polygons_roi) {
+                const auto coords_scaled = scale_coords(coords, scaleFactor);
+                rasterize_polygon(coords_scaled, img_width_scaled, img_height_scaled, positive_indices, pixel_counts);
+            }
         }
 
-        positive_indices_scaled.shrink_to_fit();
+        positive_indices.shrink_to_fit();
+        pixel_counts.shrink_to_fit();
 
         assert(positive_indices_scaled.size() == std::reduce(pixel_counts_scaled.begin(), pixel_counts_scaled.end(), 0ull));
 
-        return { positive_indices_scaled , pixel_counts_scaled };
+        return { positive_indices , pixel_counts };
     }
 
     void PolygonData::print_info(const size_t max_polygons_to_show ) const
     {
         fmt::print("PolygonData Information");
     	fmt::print("Image Dimensions: {}x{}\n", _img_width, _img_height);
-        fmt::print("Total Polygons Detected: {}\n", _names.size());
-        fmt::print("Total Positive Pixels (across all polygons): {}\n", _all_positive_indices.size());
+        fmt::print("Total Polygons Detected: {}\n", _names_tissue.size());
 
         // Print details for a limited number of polygons
-        const size_t polygons_to_show = std::min(_names.size(), max_polygons_to_show);
+        const size_t polygons_to_show = std::min(_names_tissue.size(), max_polygons_to_show);
 
         fmt::print("\n--- Polygon Details ({}/{} shown) ---\n",
-            polygons_to_show, _names.size());
+            polygons_to_show, _names_tissue.size());
 
         for (size_t i = 0; i < polygons_to_show; ++i) {
-            fmt::print("  - Polygon {}: Name='{}', Pixels={}, Color=({}, {}, {})\n",
+            fmt::print("  - Polygon {}: Name='{}', Color=({}, {}, {})\n",
                 i + 1,
-                _names[i],
-                _pixel_counts[i],
-                _colors[i][0], _colors[i][1], _colors[i][2]);
+                _names_tissue[i],
+                _colors_roi[i][0], _colors_roi[i][1], _colors_roi[i][2]);
         }
 
-        if (_names.size() > max_polygons_to_show) {
-            fmt::print("  ... {} more polygons not shown.\n", _names.size() - max_polygons_to_show);
+        if (_names_tissue.size() > max_polygons_to_show) {
+            fmt::print("  ... {} more polygons not shown.\n", _names_tissue.size() - max_polygons_to_show);
         }
 
         fmt::print("{:-<60}\n", "");

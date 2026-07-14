@@ -465,17 +465,17 @@ void PyramidImage::read_level()
 	
     std::vector<float> imageDataValues = channelMajorToPixelMajor(lvlDataChannelMajor, lvlNumChannels, lvlHeight, lvlWidth);
 
-    auto [maskIDs, pixel_counts] = pyramidData->getPolygons().downscaleMask(scaleFactor);
+    auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().downscaleMaskRoi(scaleFactor);
 
 #pragma omp parallel for
-    for (int64_t id = 0; id < static_cast<int64_t>(maskIDs.size()); ++id) {
-        uint32_t v = maskIDs[id];
+    for (int64_t id = 0; id < static_cast<int64_t>(maskIDs_roi.size()); ++id) {
+        uint32_t v = maskIDs_roi[id];
         uint32_t row = v / lvlWidth;
         uint32_t col = v % lvlWidth;
-        maskIDs[id] = (lvlHeight - 1 - row) * lvlWidth + col;
+        maskIDs_roi[id] = (lvlHeight - 1 - row) * lvlWidth + col;
     }
 
-	const auto& polygonNames = pyramidData->getPolygons().names();
+	const auto& polygonNames = pyramidData->getPolygons().names_roi();
     assert(polygonNames.size() == pixel_counts.size());
 
     // 1. Publish Image data //
@@ -503,20 +503,20 @@ void PyramidImage::read_level()
     auto pointsDatasetSelection = pointsDataset->getSelection<Points>();
     auto& selectionIDs = pointsDatasetSelection->indices;
     selectionIDs.clear();
-    selectionIDs.swap(maskIDs);
+    selectionIDs.swap(maskIDs_roi);
     auto maskDataset = mv::data().createSubsetFromSelection(pointsDatasetSelection, pointsDataset, QStringLiteral("Masked data"), pointsDataset, true, true);
-    selectionIDs.swap(maskIDs);
+    selectionIDs.swap(maskIDs_roi);
 
     auto clusterDataset = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), QStringLiteral("Masked clusters"), pointsDataset);
 
     uint32_t idsBegin = 0;
-    for (size_t roiID = 0; roiID < pixel_counts.size(); roiID++)
+    for (size_t roiID = 0; roiID < pixel_counts_roi.size(); roiID++)
     {
-        const uint32_t idsEnd = idsBegin + pixel_counts[roiID];
-        const std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
+        const uint32_t idsEnd = idsBegin + pixel_counts_roi[roiID];
+        const std::vector<uint32_t> clusterIDs(maskIDs_roi.cbegin() + idsBegin, maskIDs_roi.cbegin() + idsEnd);
         idsBegin = idsEnd;
 
-        assert(clusterIDs.size() == pixel_counts[roiID]);
+        assert(clusterIDs.size() == pixel_counts_roi[roiID]);
 
         Cluster cluster(
             QString::fromStdString(polygonNames[roiID]),
