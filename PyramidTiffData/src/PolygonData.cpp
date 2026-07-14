@@ -148,6 +148,8 @@ namespace PyramidTiffData {
             const uintmax_t total_bytes = std::filesystem::file_size(path);
             jsoncons::json_decoder<jsoncons::json> decoder;
 
+            fmt::println("Reading the json file...");
+
             for (; !cursor.done(); cursor.next())
             {
                 const auto& event = cursor.current();
@@ -219,15 +221,19 @@ namespace PyramidTiffData {
                     // TODO: handle cell, which contains "geometry" and "nucleusGeometry", 
                     //       but "properties" does not have a "name"
 
+                   std::array<uint8_t, 3>& colors = (maskType == "ROI")
+                        ? _colors_roi.emplace_back()
+                        : _colors_tissue.emplace_back();
+
                     if (feature.at("properties").contains("classification") &&
                         feature.at("properties").at("classification").contains("color"))
                     {
                         const auto feat_color = feature.at("properties").at("classification").at("color")
                             .as<std::vector<uint8_t>>();
-                        _colors_roi.push_back({ feat_color[0], feat_color[1], feat_color[2] });
+                        colors = { feat_color[0], feat_color[1], feat_color[2] };
                     }
                     else {
-                        _colors_roi.push_back({ 128, 128, 128 });
+                        colors = { 128, 128, 128 };
                     }
 
                     break;
