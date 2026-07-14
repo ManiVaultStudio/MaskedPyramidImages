@@ -462,33 +462,18 @@ void PyramidImage::read_level()
 
             return output;
         };
-	
-    std::vector<float> imageDataValues = channelMajorToPixelMajor(lvlDataChannelMajor, lvlNumChannels, lvlHeight, lvlWidth);
-
-    auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().downscaleMaskRoi(scaleFactor);
-
-#pragma omp parallel for
-    for (int64_t id = 0; id < static_cast<int64_t>(maskIDs_roi.size()); ++id) {
-        uint32_t v = maskIDs_roi[id];
-        uint32_t row = v / lvlWidth;
-        uint32_t col = v % lvlWidth;
-        maskIDs_roi[id] = (lvlHeight - 1 - row) * lvlWidth + col;
-    }
-
-	const auto& polygonNames = pyramidData->getPolygons().names_roi();
-    assert(polygonNames.size() == pixel_counts.size());
 
     // 1. Publish Image data //
-    auto pointsDataset = mv::data().createDataset<Points>(QStringLiteral("Points"), QString("Level (%1)").arg(selectedLevel), this);
-    _levelDatasets.insert({ pointsDataset.getDatasetId(), { pointsDataset, selectedLevel } });
+    auto pointsDatasetLevel = mv::data().createDataset<Points>(QStringLiteral("Points"), QString("Level (%1)").arg(selectedLevel), this);
+    _levelDatasets.insert({ pointsDatasetLevel.getDatasetId(), { pointsDatasetLevel, selectedLevel } });
 
-    pointsDataset->setData(std::move(imageDataValues), lvlNumChannels);
-    pointsDataset->setDimensionNames(channelNames);
+    pointsDatasetLevel->setData(channelMajorToPixelMajor(lvlDataChannelMajor, lvlNumChannels, lvlHeight, lvlWidth), lvlNumChannels);
+    pointsDatasetLevel->setDimensionNames(channelNames);
 
-    events().notifyDatasetDataChanged(pointsDataset);
-    events().notifyDatasetDataDimensionsChanged(pointsDataset);
+    events().notifyDatasetDataChanged(pointsDatasetLevel);
+    events().notifyDatasetDataDimensionsChanged(pointsDatasetLevel);
 
-    auto imagesDataset = mv::data().createDataset<Images>(QStringLiteral("Images"), QStringLiteral("Images"), Dataset<DatasetImpl>(*pointsDataset));
+    auto imagesDataset = mv::data().createDataset<Images>(QStringLiteral("Images"), QStringLiteral("Images"), Dataset<DatasetImpl>(*pointsDatasetLevel));
 
     imagesDataset->setText(QString("Images (%1x%2)").arg(QString::number(lvlWidth)).arg(QString::number(lvlHeight)));
     imagesDataset->setType(ImageData::Type::Stack);
@@ -500,38 +485,66 @@ void PyramidImage::read_level()
     imagesDataset->getDataHierarchyItem().select();
 
     // 2. Publish Mask data //
-    auto pointsDatasetSelection = pointsDataset->getSelection<Points>();
-    auto& selectionIDs = pointsDatasetSelection->indices;
-    selectionIDs.clear();
-    selectionIDs.swap(maskIDs_roi);
-    auto maskDataset = mv::data().createSubsetFromSelection(pointsDatasetSelection, pointsDataset, QStringLiteral("Masked data"), pointsDataset, true, true);
-    selectionIDs.swap(maskIDs_roi);
-
-    auto clusterDataset = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), QStringLiteral("Masked clusters"), pointsDataset);
-
-    uint32_t idsBegin = 0;
-    for (size_t roiID = 0; roiID < pixel_counts_roi.size(); roiID++)
+    auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, const QString& dataPrefix)
     {
-        const uint32_t idsEnd = idsBegin + pixel_counts_roi[roiID];
-        const std::vector<uint32_t> clusterIDs(maskIDs_roi.cbegin() + idsBegin, maskIDs_roi.cbegin() + idsEnd);
-        idsBegin = idsEnd;
+        // flip the mask IDs
+#pragma omp parallel for
+        for (int64_t id = 0; id < static_cast<int64_t>(maskIDs.size()); ++id) {
+            uint32_t v = maskIDs[id];
+            uint32_t row = v / lvlWidth;
+            uint32_t col = v % lvlWidth;
+            maskIDs[id] = (lvlHeight - 1 - row) * lvlWidth + col;
+        }
 
-        assert(clusterIDs.size() == pixel_counts_roi[roiID]);
+        const auto& polygonNames = pyramidData->getPolygons().names_roi();
+        assert(polygonNames.size() == pixel_counts.size());
 
-        Cluster cluster(
-            QString::fromStdString(polygonNames[roiID]),
-			{},
-            clusterIDs
-        );
+        auto pointsDatasetLevelSelection = pointsDatasetLevel->getSelection<Points>();
+        auto& selectionIDs = pointsDatasetLevelSelection->indices;
+        selectionIDs.clear();
+        selectionIDs.swap(maskIDs);
+        auto maskedPointData = mv::data().createSubsetFromSelection(pointsDatasetLevelSelection, pointsDatasetLevel, dataPrefix + QStringLiteral(" data"), pointsDatasetLevel, true, true);
+        selectionIDs.swap(maskIDs);
 
-        clusterDataset->addCluster(cluster);
+        auto clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), dataPrefix + QStringLiteral(" clusters"), pointsDatasetLevel);
+
+        uint32_t idsBegin = 0;
+        for (size_t roiID = 0; roiID < pixel_counts.size(); roiID++)
+        {
+            const uint32_t idsEnd = idsBegin + pixel_counts[roiID];
+            const std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
+            idsBegin = idsEnd;
+
+            assert(clusterIDs.size() == pixel_counts[roiID]);
+
+            Cluster cluster(
+                QString::fromStdString(polygonNames[roiID]),
+                {},
+                clusterIDs
+            );
+
+            clustersData->addCluster(cluster);
+        }
+
+        Cluster::colorizeClusters(
+            clustersData->getClusters(),
+            42);
+
+        events().notifyDatasetDataChanged(clustersData);
+
+    };
+
+    if (pyramidData->getPolygons().has_roi())
+    {
+        auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().downscaleMaskRoi(scaleFactor);
+        publicMaskData(maskIDs_roi, pixel_counts_roi, "ROI");
+    }
+    if (pyramidData->getPolygons().has_tissue())
+    {
+        auto [maskIDs_tissue, pixel_counts_tissue] = pyramidData->getPolygons().downscaleMaskTissue(scaleFactor);
+        publicMaskData(maskIDs_tissue, pixel_counts_tissue, "TISSUE");
     }
 
-    Cluster::colorizeClusters(
-        clusterDataset->getClusters(),
-        42);
-
-    events().notifyDatasetDataChanged(clusterDataset);
 }
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()

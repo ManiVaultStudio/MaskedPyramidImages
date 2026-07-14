@@ -62,8 +62,11 @@ namespace PyramidTiffData
         [[nodiscard]] const std::vector<std::string>& names_tissue() const noexcept {
             return _names_tissue;
         }
-        [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_tissue() const noexcept {
-            return _colors_tissue;
+        [[nodiscard]] bool has_roi() const noexcept {
+            return !_polygons_roi.empty();
+        }
+        [[nodiscard]] bool has_tissue() const noexcept {
+            return !_polygons_tissue.empty();
         }
 
     private:
