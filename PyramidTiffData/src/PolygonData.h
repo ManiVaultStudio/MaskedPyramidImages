@@ -21,6 +21,13 @@ namespace PyramidTiffData
         bool operator!=(const Point2D&) const = default;
     };
 
+    enum class MaskType : uint8_t
+    {
+        Roi,
+        Tissue,
+        None,
+    };
+
     void rasterize_polygon(const std::vector<Point2D>& points, 
         const uint32_t img_width, const uint32_t img_height,
         std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts);
@@ -43,8 +50,8 @@ namespace PyramidTiffData
 
         void init(const std::filesystem::path& path, const uint32_t img_width, const uint32_t img_height);
 
-        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMaskRoi(const double scaleFactor) const;
-        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMaskTissue(const double scaleFactor) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskRoi(const double scaleFactor) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskTissue(const double scaleFactor) const;
 
     public: // getter
         [[nodiscard]] uint32_t img_width() const noexcept {
@@ -56,11 +63,14 @@ namespace PyramidTiffData
         [[nodiscard]] const std::vector<std::string>& names_roi() const noexcept {
             return _names_roi;
         }
+        [[nodiscard]] const std::vector<std::string>& names_tissue() const noexcept {
+            return _names_tissue;
+        }
         [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_roi() const noexcept {
             return _colors_roi;
         }
-        [[nodiscard]] const std::vector<std::string>& names_tissue() const noexcept {
-            return _names_tissue;
+        [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_tissue() const noexcept {
+            return _colors_tissue;
         }
         [[nodiscard]] bool has_roi() const noexcept {
             return !_polygons_roi.empty();
@@ -71,7 +81,7 @@ namespace PyramidTiffData
 
     private:
         void parse_mask_annotations(const std::filesystem::path& path);
-        std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(const double scaleFactor, const std::vector<std::vector<Point2D>>& polygons_roi) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(const double scaleFactor, const std::vector<std::vector<Point2D>>& polygons_roi) const;
 
     private:
         uint32_t _img_width{};

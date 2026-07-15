@@ -4,11 +4,10 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <string>
 #include <vector>
-
-#include <stdio.h>
 
 #ifndef NDEBUG
 #include <numeric>
@@ -137,6 +136,72 @@ namespace PyramidTiffData {
 
         bool found_features = false;
 
+        auto getMaskType = [](const jsoncons::json& feat) -> MaskType
+        {
+            if (!feat.contains("properties")) return MaskType::None;
+
+            const auto& props = feat.at("properties");
+
+            if (!props.contains("classification")) return MaskType::None;
+
+            const auto& classification = props.at("classification");
+            if (!classification.contains("name")) return MaskType::None;
+
+            if (classification.at("name").as<std::string>() == "ROI") return MaskType::Roi;
+            if (classification.at("name").as<std::string>() == "TISSUE") return MaskType::Tissue;
+
+            return MaskType::None;
+        };
+
+        auto parseName = [](const jsoncons::json& feat, std::vector<std::string>& names, const std::string& prefix, int& counter) -> void
+        {
+            if (feat.at("properties").contains("name")) {
+                names.push_back(feat.at("properties").at("name").as<std::string>());
+            }
+            else {
+                names.push_back(fmt::format("{} {}", prefix, counter++));
+            }
+
+        };
+
+        auto parseNameID = [](const jsoncons::json& feat, std::vector<std::string>& names, const std::string& prefix, int& counter) -> void
+        {
+            if (feat.contains("id")) {
+                names.push_back(feat.at("id").as<std::string>());
+            }
+            else {
+                names.push_back(fmt::format("{} {}", prefix, counter++));
+            }
+        };
+
+        auto parseGeometry = [](const jsoncons::json& feat, std::vector<std::vector<Point2D>>& polygons, const std::string& geometryKey = "geometry") -> void
+        {
+            std::vector<Point2D>& poly_points = polygons.emplace_back();
+
+            if (feat.contains(geometryKey) && feat.at(geometryKey).contains("coordinates")) {
+                const auto& coordinates = feat.at(geometryKey).at("coordinates").at(0);
+                poly_points.reserve(coordinates.size());
+                for (const auto& coords : coordinates.array_range()) {
+                    poly_points.push_back(coords.as<Point2D>());
+                }
+            }
+        };
+
+        auto parseColor = [](const jsoncons::json& feat, std::vector<std::array<uint8_t, 3>>& colors) -> void
+        {
+            std::array<uint8_t, 3>& color = colors.emplace_back();
+
+            if (feat.at("properties").contains("classification") &&
+                feat.at("properties").at("classification").contains("color"))
+            {
+                const auto feat_color = feat.at("properties").at("classification").at("color").as<std::vector<uint8_t>>();
+                color = { feat_color[0], feat_color[1], feat_color[2] };
+            }
+            else {
+                color = { 128, 128, 128 };
+            }
+        };
+
         try {
             jsoncons::json_stream_cursor cursor(f);
 
@@ -175,65 +240,23 @@ namespace PyramidTiffData {
                     cursor.read_to(decoder);
                     const jsoncons::json feature = decoder.get_result();
 
-                    if (!feature.contains("properties") ||
-                        !feature.at("properties").contains("classification") ||
-                        !feature.at("properties").at("classification").contains("name"))
-                        break;
+                    const auto maskType = getMaskType(feature);
 
-                    const std::string maskType = feature.at("properties").at("classification").at("name").as<std::string>();
-
-                    if (maskType == "ROI")
+                    if (maskType == MaskType::Roi)
                     {
-                        if (feature.at("properties").contains("name")) {
-                            _names_roi.push_back(feature.at("properties").at("name").as<std::string>());
-                        }
-                        else {
-                            _names_roi.push_back(fmt::format("ROI {}", unnamed_roi_counter++));
-                        }
+                        parseName(feature, _names_roi, "ROI", unnamed_roi_counter);
+                        parseGeometry(feature, _polygons_roi);
+                        parseColor(feature, _colors_roi);
                     }
-                    else if (maskType == "TISSUE")
+                    else if (maskType == MaskType::Tissue)
                     {
-                        if (feature.contains("id")) {
-                            _names_tissue.push_back(feature.at("id").as<std::string>());
-                        }
-                        else {
-                            _names_tissue.push_back(fmt::format("TISSUE {}", unnamed_tissue_counter++));
-                        }
+                        parseNameID(feature, _names_tissue, "TISSUE", unnamed_tissue_counter);
+                        parseGeometry(feature, _polygons_tissue);
+                        parseColor(feature, _colors_tissue);
                     }
                     else
                     {
                         fmt::println("PolygonData::parse_mask_annotations: json feature does not contain ROI or TISSUE");
-                        break;
-                    }
-
-                    std::vector<Point2D>& poly_points = (maskType == "ROI") 
-                		? _polygons_roi.emplace_back()
-                		: _polygons_tissue.emplace_back();
-
-                	if (feature.contains("geometry") && feature.at("geometry").contains("coordinates")) {
-                        const auto& feat_coordinates = feature.at("geometry").at("coordinates").at(0);
-                        poly_points.reserve(feat_coordinates.size());
-                        for (const auto& coords : feat_coordinates.array_range()) {
-                            poly_points.push_back(coords.as<Point2D>());
-                        }
-                    }
-
-                    // TODO: handle cell, which contains "geometry" and "nucleusGeometry", 
-                    //       but "properties" does not have a "name"
-
-                   std::array<uint8_t, 3>& colors = (maskType == "ROI")
-                        ? _colors_roi.emplace_back()
-                        : _colors_tissue.emplace_back();
-
-                    if (feature.at("properties").contains("classification") &&
-                        feature.at("properties").at("classification").contains("color"))
-                    {
-                        const auto feat_color = feature.at("properties").at("classification").at("color")
-                            .as<std::vector<uint8_t>>();
-                        colors = { feat_color[0], feat_color[1], feat_color[2] };
-                    }
-                    else {
-                        colors = { 128, 128, 128 };
                     }
 
                     break;
@@ -249,8 +272,7 @@ namespace PyramidTiffData {
                     break;
                 }
 
-                // Progress bar - update only when the percentage actually changes,
-				// so we're not flooding stdout on every event.
+                // progress bar
                 const uintmax_t bytes_read = static_cast<std::uintmax_t>(f.tellg());
                 const uintmax_t pct = total_bytes > 0
                     ? static_cast<int>((bytes_read * 100) / total_bytes)
@@ -259,20 +281,19 @@ namespace PyramidTiffData {
                     last_pct = pct;
                     constexpr uintmax_t bar_width = 40;
                     const int filled = static_cast<int>(static_cast<double>(bar_width * pct) / 100.0);
-                    fmt::print("\r[{:=<{}}{: <{}}] {:3}%",
-                        "", filled, "", bar_width - filled, pct);
-                    fflush(stdout);
+                    fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", bar_width - filled, pct);
+                    [[maybe_unused]] int success = std::fflush(stdout);
                 }
             }
-            fmt::print("\n"); // move past the progress line once done
+            fmt::print("\n"); // move past the progress line
         }
         catch (const std::exception& err) {
-            fmt::print("PolygonData::parse_mask_annotations: json parse error: {}", err.what());
+            fmt::println("PolygonData::parse_mask_annotations: json parse error: {}", err.what());
             return;
         }
 
         if (!found_features) {
-            fmt::print("PolygonData::parse_mask_annotations: json does not contain features field");
+            fmt::println("PolygonData::parse_mask_annotations: json does not contain features field");
             return;
         }
 
@@ -282,17 +303,17 @@ namespace PyramidTiffData {
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMaskRoi(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor) const
     {
         return downscaleMask(scaleFactor, _polygons_roi);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMaskTissue(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactor) const
     {
         return downscaleMask(scaleFactor, _polygons_tissue);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor, 
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor,
         const std::vector<std::vector<Point2D>>& polygons_roi) const
     {
         std::vector<uint32_t> positive_indices{};

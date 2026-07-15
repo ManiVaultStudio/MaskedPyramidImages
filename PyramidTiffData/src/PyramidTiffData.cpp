@@ -485,7 +485,8 @@ void PyramidImage::read_level()
     imagesDataset->getDataHierarchyItem().select();
 
     // 2. Publish Mask data //
-    auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, const QString& dataPrefix)
+    auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, 
+        const QString& dataPrefix, const std::vector<std::array<uint8_t, 3>>* colors = nullptr)
     {
         // flip the mask IDs
 #pragma omp parallel for
@@ -508,6 +509,8 @@ void PyramidImage::read_level()
 
         auto clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), dataPrefix + QStringLiteral(" clusters"), pointsDatasetLevel);
 
+        assert(!colors || colors->size() == pixel_counts.size());
+
         uint32_t idsBegin = 0;
         for (size_t roiID = 0; roiID < pixel_counts.size(); roiID++)
         {
@@ -523,12 +526,20 @@ void PyramidImage::read_level()
                 clusterIDs
             );
 
+            if (colors) {
+                const auto& color = colors->at(roiID);
+                cluster.setColor({ color[0], color[1], color[2] });
+            }
             clustersData->addCluster(cluster);
+
         }
 
-        Cluster::colorizeClusters(
-            clustersData->getClusters(),
-            42);
+        if (!colors)
+        {
+            Cluster::colorizeClusters(
+                clustersData->getClusters(),
+                42);
+        }
 
         events().notifyDatasetDataChanged(clustersData);
 
@@ -536,13 +547,13 @@ void PyramidImage::read_level()
 
     if (pyramidData->getPolygons().has_roi())
     {
-        auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().downscaleMaskRoi(scaleFactor);
-        publicMaskData(maskIDs_roi, pixel_counts_roi, "ROI");
+        auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().getMaskRoi(scaleFactor);
+        publicMaskData(maskIDs_roi, pixel_counts_roi, "ROI", &pyramidData->getPolygons().colors_roi());
     }
     if (pyramidData->getPolygons().has_tissue())
     {
-        auto [maskIDs_tissue, pixel_counts_tissue] = pyramidData->getPolygons().downscaleMaskTissue(scaleFactor);
-        publicMaskData(maskIDs_tissue, pixel_counts_tissue, "TISSUE");
+        auto [maskIDs_tissue, pixel_counts_tissue] = pyramidData->getPolygons().getMaskTissue(scaleFactor);
+        publicMaskData(maskIDs_tissue, pixel_counts_tissue, "TISSUE", &pyramidData->getPolygons().colors_tissue());
     }
 
 }
