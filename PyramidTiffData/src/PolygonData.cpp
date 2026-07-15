@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -23,12 +24,20 @@ namespace jsoncons {
     template<class Json>
     struct json_type_traits<Json, PyramidTiffData::Point2D> {
         static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2;
+            return j.is_array() && j.size() >= 2 &&
+                j[0].is_number() && j[1].is_number();
         }
 
         static PyramidTiffData::Point2D as(const Json& j) {
-            // Use .template as<T>() when inside a template traits class
-            return { j[0].template as<uint32_t>(), j[1].template as<uint32_t>() };
+            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
+            // round to the nearest pixel rather than requiring an exact integer.
+            const double x = j[0].as_double();
+            const double y = j[1].as_double();
+
+            return {
+                .x = static_cast<uint32_t>(std::llround(x)),
+                .y = static_cast<uint32_t>(std::llround(y))
+            };
         }
 
         static Json to_json(const PyramidTiffData::Point2D& p) {
@@ -142,6 +151,10 @@ namespace PyramidTiffData {
 
             const auto& props = feat.at("properties");
 
+            if (!props.contains("objectType")) return MaskType::None;
+
+            if (props.at("objectType").as<std::string>() == "cell") return MaskType::Cell;
+
             if (!props.contains("classification")) return MaskType::None;
 
             const auto& classification = props.at("classification");
@@ -179,12 +192,31 @@ namespace PyramidTiffData {
             std::vector<Point2D>& poly_points = polygons.emplace_back();
 
             if (feat.contains(geometryKey) && feat.at(geometryKey).contains("coordinates")) {
-                const auto& coordinates = feat.at(geometryKey).at("coordinates").at(0);
-                poly_points.reserve(coordinates.size());
-                for (const auto& coords : coordinates.array_range()) {
+                const auto& base_coords = feat.at(geometryKey).at("coordinates");
+                if (base_coords.empty()) return;
+
+                const auto& first_elem = base_coords.at(0);
+                if (first_elem.empty()) return;
+
+                // Default to standard Polygon level
+                const jsoncons::json* coordinates = &first_elem;
+
+                // Check an extra level of nesting (this seems occasionally be the case)
+                // If first_elem[0][0] is an array, we are nested one level too deep.
+                if (first_elem[0].is_array() && !first_elem[0].empty() && first_elem[0][0].is_array()) {
+                    coordinates = &first_elem.at(0);
+                }
+
+                poly_points.reserve(coordinates->size());
+                for (const auto& coords : coordinates->array_range()) {
                     poly_points.push_back(coords.as<Point2D>());
                 }
             }
+        };
+
+        auto parseGeometryNucleus = [parseGeometry](const jsoncons::json& feat, std::vector<std::vector<Point2D>>& polygons) -> void
+        {
+            parseGeometry(feat, polygons, "nucleusGeometry");
         };
 
         auto parseColor = [](const jsoncons::json& feat, std::vector<std::array<uint8_t, 3>>& colors) -> void
@@ -207,6 +239,7 @@ namespace PyramidTiffData {
 
             int unnamed_roi_counter = 0;
             int unnamed_tissue_counter = 0;
+            int unnamed_cell_counter = 0;
             bool in_features_array = false;
 
             uintmax_t last_pct = -1;
@@ -254,9 +287,15 @@ namespace PyramidTiffData {
                         parseGeometry(feature, _polygons_tissue);
                         parseColor(feature, _colors_tissue);
                     }
+                    else if (maskType == MaskType::Cell)
+                    {
+                        parseNameID(feature, _names_cell, "CELL", unnamed_cell_counter);
+                        parseGeometry(feature, _polygons_cell);
+                        parseGeometryNucleus(feature, _polygons_nucleus);
+                    }
                     else
                     {
-                        fmt::println("PolygonData::parse_mask_annotations: json feature does not contain ROI or TISSUE");
+                        fmt::println("PolygonData::parse_mask_annotations: json feature does not contain ROI, TISSUE or CELL");
                     }
 
                     break;
@@ -273,11 +312,11 @@ namespace PyramidTiffData {
                 }
 
                 // progress bar
-                const uintmax_t bytes_read = static_cast<std::uintmax_t>(f.tellg());
+                const auto pos = f.tellg();
                 const uintmax_t pct = total_bytes > 0
-                    ? static_cast<int>((bytes_read * 100) / total_bytes)
+                    ? static_cast<int>((static_cast<std::uintmax_t>(pos) * 100) / total_bytes)
                     : 0;
-                if (pct != last_pct) {
+                if (pos > 0 && pct != last_pct) {
                     last_pct = pct;
                     constexpr uintmax_t bar_width = 40;
                     const int filled = static_cast<int>(static_cast<double>(bar_width * pct) / 100.0);
@@ -301,6 +340,8 @@ namespace PyramidTiffData {
         assert(_colors_roi.size() == _polygons_roi.size());
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
+        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
+        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_cellNucleus.size());
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor) const
@@ -311,6 +352,16 @@ namespace PyramidTiffData {
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactor) const
     {
         return downscaleMask(scaleFactor, _polygons_tissue);
+    }
+
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactor) const
+    {
+        return downscaleMask(scaleFactor, _polygons_cell);
+    }
+
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactor) const
+    {
+        return downscaleMask(scaleFactor, _polygons_nucleus);
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor,

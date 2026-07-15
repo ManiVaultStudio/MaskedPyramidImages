@@ -25,6 +25,7 @@ namespace PyramidTiffData
     {
         Roi,
         Tissue,
+        Cell,
         None,
     };
 
@@ -52,6 +53,8 @@ namespace PyramidTiffData
 
         [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskRoi(const double scaleFactor) const;
         [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskTissue(const double scaleFactor) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskCell(const double scaleFactor) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskNucleus(const double scaleFactor) const;
 
     public: // getter
         [[nodiscard]] uint32_t img_width() const noexcept {
@@ -66,6 +69,9 @@ namespace PyramidTiffData
         [[nodiscard]] const std::vector<std::string>& names_tissue() const noexcept {
             return _names_tissue;
         }
+        [[nodiscard]] const std::vector<std::string>& names_cell() const noexcept {
+            return _names_cell;
+        }
         [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_roi() const noexcept {
             return _colors_roi;
         }
@@ -78,6 +84,12 @@ namespace PyramidTiffData
         [[nodiscard]] bool has_tissue() const noexcept {
             return !_polygons_tissue.empty();
         }
+        [[nodiscard]] bool has_cell() const noexcept {
+            return !_polygons_cell.empty();
+        }
+        [[nodiscard]] bool has_nucleus() const noexcept {
+            return !_polygons_nucleus.empty();
+        }
 
     private:
         void parse_mask_annotations(const std::filesystem::path& path);
@@ -89,13 +101,15 @@ namespace PyramidTiffData
 
         std::vector<std::string> _names_roi{};
         std::vector<std::string> _names_tissue{};
+        std::vector<std::string> _names_cell{};
 
         std::vector<std::array<uint8_t, 3>> _colors_roi{};
         std::vector<std::array<uint8_t, 3>> _colors_tissue{};
 
         std::vector<std::vector<Point2D>> _polygons_roi{};
         std::vector<std::vector<Point2D>> _polygons_tissue{};
-        std::vector<std::vector<Point2D>> _polygons_membrane{};     // not yet used
+        std::vector<std::vector<Point2D>> _polygons_cell{};
+        std::vector<std::vector<Point2D>> _polygons_nucleus{};
     };
 
 } // namespace PyramidTiffData
