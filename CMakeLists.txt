@@ -47,8 +47,8 @@ if(TARGET libzstd_static)
 endif()
 
 find_package(fmt CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
+find_package(jsoncons REQUIRED)
 
 if(MV_MIPYR_USE_OPENMP)
     find_package(OpenMP)

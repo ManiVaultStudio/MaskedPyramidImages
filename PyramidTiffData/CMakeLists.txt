@@ -92,7 +92,7 @@ target_link_libraries(${PYRAMIDTIFFDATA}
         ManiVault::ClusterData
         ManiVault::ImageData
         TIFF::TIFF
-        nlohmann_json::nlohmann_json
+        jsoncons::jsoncons
         fmt::fmt
 )
 
