@@ -485,7 +485,7 @@ void PyramidImage::read_level()
     imagesDataset->getDataHierarchyItem().select();
 
     // 2. Publish Mask data //
-    auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, 
+    auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, const std::vector<std::string>& polygonNames,
         const QString& dataPrefix, const std::vector<std::array<uint8_t, 3>>* colors = nullptr)
     {
         // flip the mask IDs
@@ -497,9 +497,6 @@ void PyramidImage::read_level()
             maskIDs[id] = (lvlHeight - 1 - row) * lvlWidth + col;
         }
 
-        const auto& polygonNames = pyramidData->getPolygons().names_roi();
-        assert(polygonNames.size() == pixel_counts.size());
-
         auto pointsDatasetLevelSelection = pointsDatasetLevel->getSelection<Points>();
         auto& selectionIDs = pointsDatasetLevelSelection->indices;
         selectionIDs.clear();
@@ -509,11 +506,15 @@ void PyramidImage::read_level()
 
         auto clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), dataPrefix + QStringLiteral(" clusters"), pointsDatasetLevel);
 
+        assert(polygonNames.size() == pixel_counts.size());
         assert(!colors || colors->size() == pixel_counts.size());
 
         uint32_t idsBegin = 0;
         for (size_t roiID = 0; roiID < pixel_counts.size(); roiID++)
         {
+            if (pixel_counts[roiID] == 0)
+                continue;
+
             const uint32_t idsEnd = idsBegin + pixel_counts[roiID];
             const std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
@@ -548,12 +549,22 @@ void PyramidImage::read_level()
     if (pyramidData->getPolygons().has_roi())
     {
         auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().getMaskRoi(scaleFactor);
-        publicMaskData(maskIDs_roi, pixel_counts_roi, "ROI", &pyramidData->getPolygons().colors_roi());
+        publicMaskData(maskIDs_roi, pixel_counts_roi, pyramidData->getPolygons().names_roi(), "ROI", &pyramidData->getPolygons().colors_roi());
     }
     if (pyramidData->getPolygons().has_tissue())
     {
         auto [maskIDs_tissue, pixel_counts_tissue] = pyramidData->getPolygons().getMaskTissue(scaleFactor);
-        publicMaskData(maskIDs_tissue, pixel_counts_tissue, "TISSUE", &pyramidData->getPolygons().colors_tissue());
+        publicMaskData(maskIDs_tissue, pixel_counts_tissue, pyramidData->getPolygons().names_tissue(), "TISSUE", &pyramidData->getPolygons().colors_tissue());
+    }
+    if (pyramidData->getPolygons().has_cell())
+    {
+        auto [maskIDs_cell, pixel_counts_cell] = pyramidData->getPolygons().getMaskCell(scaleFactor);
+        publicMaskData(maskIDs_cell, pixel_counts_cell, pyramidData->getPolygons().names_cell(), "CELL");
+    }
+    if (pyramidData->getPolygons().has_nucleus())
+    {
+        auto [maskIDs_nucleus, pixel_counts_nucleus] = pyramidData->getPolygons().getMaskNucleus(scaleFactor);
+        publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, pyramidData->getPolygons().names_cell(), "NUCLEUS");
     }
 
 }
