@@ -273,11 +273,11 @@ namespace PyramidTiffData {
                 }
 
                 // progress bar
-                const uintmax_t bytes_read = static_cast<std::uintmax_t>(f.tellg());
+                const auto pos = f.tellg();
                 const uintmax_t pct = total_bytes > 0
-                    ? static_cast<int>((bytes_read * 100) / total_bytes)
+                    ? static_cast<int>((static_cast<std::uintmax_t>(pos) * 100) / total_bytes)
                     : 0;
-                if (pct != last_pct) {
+                if (pos > 0 && pct != last_pct) {
                     last_pct = pct;
                     constexpr uintmax_t bar_width = 40;
                     const int filled = static_cast<int>(static_cast<double>(bar_width * pct) / 100.0);
