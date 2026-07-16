@@ -20,12 +20,20 @@ namespace jsoncons {
     template<class Json>
     struct json_type_traits<Json, PyramidTiffData::Point2D> {
         static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2;
+            return j.is_array() && j.size() >= 2 &&
+                j[0].is_number() && j[1].is_number();
         }
 
         static PyramidTiffData::Point2D as(const Json& j) {
-            // Use .template as<T>() when inside a template traits class
-            return { j[0].template as<uint32_t>(), j[1].template as<uint32_t>() };
+            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
+            // round to the nearest pixel rather than requiring an exact integer.
+            const double x = j[0].as_double();
+            const double y = j[1].as_double();
+
+            return {
+                .x = static_cast<uint32_t>(std::llround(x)),
+                .y = static_cast<uint32_t>(std::llround(y))
+            };
         }
 
         static Json to_json(const PyramidTiffData::Point2D& p) {
@@ -126,7 +134,7 @@ namespace utils
 
                     features_buffer.push_back(feature);
 
-                    std::cout << "Feature " << features_buffer.size() << " collected\n";
+                    fmt::println("Feature {} collected", features_buffer.size());
 
                     // When buffer reaches 10 features, write to file and reset
                     if (features_buffer.size() >= MAX_FEATURES_PER_FILE) {
@@ -161,6 +169,77 @@ namespace utils
         input_file.close();
 
     }
+   
+	static void extract_roi_json_file(const std::filesystem::path& json_path)
+    {
+        std::ifstream input_file(json_path);
+
+        json_stream_cursor cursor(input_file);
+        json_decoder<ojson> decoder;
+
+        std::vector<ojson> features_buffer;
+        bool in_features_array = false;
+
+        // Stream through the input
+        while (!cursor.done())
+        {
+            const auto& event = cursor.current();
+
+            switch (event.event_type())
+            {
+            case staj_event_type::key:
+            {
+                auto key = event.get<jsoncons::string_view>();
+                if (key == "features") {
+                    in_features_array = true;
+                }
+                break;
+            }
+
+            case staj_event_type::begin_object:
+            {
+                if (in_features_array)
+                {
+                    cursor.read_to(decoder);
+                    ojson feature = decoder.get_result();
+
+                    if (!feature.contains("properties")) break;
+
+                    const auto& props = feature.at("properties");
+                    if (!props.contains("classification")) break;
+
+                    const auto& classification = props.at("classification");
+                    if (!classification.contains("name")) break;
+
+                    if (classification.at("name").as<std::string>() == "ROI")
+                    {
+                        features_buffer.push_back(feature);
+
+                    }
+
+                }
+                break;
+            }
+
+            case staj_event_type::end_array:
+            {
+                if (in_features_array) {
+                    in_features_array = false;
+                }
+                break;
+            }
+
+            default:
+                break;
+            }
+
+            cursor.next();
+        }
+
+        input_file.close();
+
+        utils::create_output_file(features_buffer, json_path.parent_path(), 99);
+    }
 
     static void copy_tiff_file(const std::filesystem::path& img_path, const std::filesystem::path& json_path)
     {
@@ -182,7 +261,6 @@ namespace utils
         const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_channel);
 
         PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_channel));
-
     }
 
 }
@@ -204,6 +282,7 @@ int main(int argc, char* argv[]) {
 	try {
         utils::copy_tiff_file(img_path, json_path);
         utils::split_json_file(json_path);
+        utils::extract_roi_json_file(json_path);
     }
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());
