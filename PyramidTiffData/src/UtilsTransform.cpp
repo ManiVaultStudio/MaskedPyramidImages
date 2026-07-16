@@ -158,7 +158,7 @@ namespace PyramidTiffData {
                 j = i;
             }
 
-        	std::ranges::sort(nodes);
+            sortAndUnique(nodes);
 
             // Fill pixels between pairs of nodes (Even-Odd rule)
             for (size_t i = 0; i < nodes.size(); i += 2) {
