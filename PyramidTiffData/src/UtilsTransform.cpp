@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstring>  // for memset
 #include <filesystem>
 
 #if defined(__cpp_lib_execution)
