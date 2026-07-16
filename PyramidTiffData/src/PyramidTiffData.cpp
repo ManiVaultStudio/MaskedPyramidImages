@@ -53,7 +53,7 @@ namespace
         std::sort(MV_PYRAMID_PARALLEL_EXECUTION
             v.begin(),
             v.end());
-        auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
+        const auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
             v.begin(),
             v.end());
         v.erase(last, v.end());
