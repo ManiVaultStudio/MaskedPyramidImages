@@ -16,12 +16,14 @@
 #include <ranges>
 #include <string>
 
-#if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
-#if defined(__GNUC__)  // both TBB and Qt define emit keyword
+#if defined(__APPLE__) && defined(__clang__)
+#define MV_PYRAMID_PARALLEL_EXECUTION
+#elif defined(__cpp_lib_execution)
+#if defined(__GNUC__)  // both TBB and Qt define emit keyword: undef
 #undef emit
 #endif
 #include <execution>
-#if defined(__GNUC__) // both TBB and Qt define emit keyword
+#if defined(__GNUC__) // both TBB and Qt define emit keyword: def again
 #define emit
 #endif
 #ifdef NDEBUG
@@ -29,7 +31,7 @@
 #else
 #define MV_PYRAMID_PARALLEL_EXECUTION std::execution::seq,
 #endif
-#else // __clang__
+#else
 #define MV_PYRAMID_PARALLEL_EXECUTION
 #endif
 
