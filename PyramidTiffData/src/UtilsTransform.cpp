@@ -4,7 +4,6 @@
 #include <array>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <filesystem>
 
 #if defined(__cpp_lib_execution)
