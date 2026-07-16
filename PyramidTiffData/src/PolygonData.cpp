@@ -59,10 +59,8 @@ namespace PyramidTiffData {
 
     inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
     {
-        const uintmax_t pct = total > 0
-            ? static_cast<uintmax_t>((current * 100) / total)
-            : 0;
-        if (current > 0 && pct != previous_pct) {
+        const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
+        if (pct != previous_pct) {
             previous_pct = pct;
             const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
             fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
@@ -274,7 +272,8 @@ namespace PyramidTiffData {
                     break;
                 }
 
-                ProgressBarPrint(static_cast<std::uintmax_t>(f.tellg()), last_pct, total_bytes);
+                const auto pos = f.tellg();
+                if (pos > 0) ProgressBarPrint(static_cast<std::uintmax_t>(pos), last_pct, total_bytes);
             }
             ProgressBarFinish();
         }
