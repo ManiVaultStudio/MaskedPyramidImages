@@ -7,10 +7,6 @@
 #include <cstdint>
 #include <filesystem>
 
-#ifndef NDEBUG
-#include <numeric>
-#endif
-
 #if defined(__cpp_lib_execution)
 #if defined(__GNUC__)  // both TBB and Qt define emit keyword: undef
 #undef emit

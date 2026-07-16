@@ -10,6 +10,10 @@
 #include <string>
 #include <vector>
 
+#ifndef NDEBUG
+#include <numeric>
+#endif
+
 #include <fmt/base.h>
 #include <fmt/std.h>
 
@@ -289,7 +293,7 @@ namespace PyramidTiffData {
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
-        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_cellNucleus.size());
+        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor) const
@@ -354,7 +358,7 @@ namespace PyramidTiffData {
             indices[id] = (img_height_scaled - 1 - row) * img_width_scaled + col;
         }
 
-        assert(positive_indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
+        assert(indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
 
         return { indices , pixel_counts };
     }
