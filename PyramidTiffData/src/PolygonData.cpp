@@ -71,7 +71,7 @@ namespace PyramidTiffData {
 
     inline void ProgressBarFinish()
     {
-        fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", ProgressBarWidth, 100.0); // 100%
+        fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
     }
 
     inline std::uintmax_t ProgressBarInit()
