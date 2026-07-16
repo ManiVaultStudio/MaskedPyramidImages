@@ -134,7 +134,7 @@ namespace utils
 
                     features_buffer.push_back(feature);
 
-                    std::cout << "Feature " << features_buffer.size() << " collected\n";
+                    fmt::println("Feature {} collected", features_buffer.size());
 
                     // When buffer reaches 10 features, write to file and reset
                     if (features_buffer.size() >= MAX_FEATURES_PER_FILE) {
