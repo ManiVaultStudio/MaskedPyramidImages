@@ -7,36 +7,10 @@
 #include <utility>
 #include <vector>
 
+#include "UtilsTransform.h"
+
 namespace PyramidTiffData
 {
-    // =============================================================================
-	// Helper
-	// =============================================================================
-    
-    struct Point2D {
-        uint32_t x;
-        uint32_t y;
-
-        bool operator==(const Point2D&) const = default;
-        bool operator!=(const Point2D&) const = default;
-    };
-
-    enum class MaskType : uint8_t
-    {
-        Roi,
-        Tissue,
-        Cell,
-        None,
-    };
-
-    void rasterize_polygon(const std::vector<Point2D>& points, 
-        const uint32_t img_width, const uint32_t img_height,
-        std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts);
-
-    // =============================================================================
-    // PolygonData
-    // =============================================================================
-
     class PolygonData {
     public:
         PolygonData() = default;
