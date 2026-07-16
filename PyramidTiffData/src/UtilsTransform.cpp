@@ -127,19 +127,19 @@ namespace PyramidTiffData {
         if (points.front() != points.back()) return;
 
         // Find bounding box to limit search area
-        uint32_t minY = points[0].y;
-        uint32_t maxY = points[0].y;
-        for (const auto& [p_x, p_y] : points) {
-            minY = std::min(minY, p_y);
-            maxY = std::max(maxY, p_y);
-        }
+        auto [minIt, maxIt] = std::minmax_element(MV_PYRAMID_PARALLEL_EXECUTION
+			points.begin(), points.end(),
+            [](const Point2D& a, const Point2D& b) 
+            { return a.y < b.y; });
+        const double minY = minIt->y;
+        const double maxY = maxIt->y;
 
         const uint32_t count_before = static_cast<uint32_t>(indices.size());
         const auto img_width_d = static_cast<double>(img_width);
         const auto max_id = static_cast<uint64_t>(img_width) * img_height;
 
         // Iterate through each scanline
-        for (uint32_t y = minY; y <= maxY; ++y) {
+        for (uint32_t y = static_cast<uint32_t>(minY); y <= maxY; ++y) {
             const double scanline = static_cast<double>(y) + 0.5; // pixel center
 
             std::vector<uint32_t> nodes;
@@ -147,16 +147,13 @@ namespace PyramidTiffData {
 
             // Find intersections of the scanline with polygon edges
             for (size_t i = 0; i < points.size(); ++i) {
-                const double yi = static_cast<double>(points[i].y);
-                const double yj = static_cast<double>(points[j].y);
+                const auto& [xi, yi] = points[i];
+                const auto& [xj, yj] = points[j];
 
                 if ((yi <= scanline && yj > scanline) || (yj <= scanline && yi > scanline)) {
-                	const double nodeX = static_cast<double>(points[i].x)
-                        + (scanline - yi) / (yj - yi)
-                        * (static_cast<double>(points[j].x) - static_cast<double>(points[i].x));
-                	
+                	const double nodeX = xi + (scanline - yi) / (yj - yi) * (xj - xi);
                     const double clampedX = std::clamp(nodeX, 0.0, img_width_d - 1.0);
-                    nodes.push_back(static_cast<uint32_t>(clampedX));
+                    nodes.push_back(static_cast<uint32_t>(std::lround(clampedX)));
                 }
                 j = i;
             }

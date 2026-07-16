@@ -25,10 +25,10 @@ namespace PyramidTiffData
 
         void init(const std::filesystem::path& path, const uint32_t img_width, const uint32_t img_height);
 
-        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskRoi(const double scaleFactor) const;
-        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskTissue(const double scaleFactor) const;
-        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskCell(const double scaleFactor) const;
-        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskNucleus(const double scaleFactor) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskRoi(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskTissue(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskCell(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const;
+        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> getMaskNucleus(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const;
 
     public: // getter
         [[nodiscard]] uint32_t img_width() const noexcept {
@@ -67,7 +67,10 @@ namespace PyramidTiffData
 
     private:
         void parse_mask_annotations(const std::filesystem::path& path);
-        [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(const double scaleFactor, const std::vector<std::vector<Point2D>>& polygons_roi) const;
+
+        static [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(const double scaleFactor,
+            const uint32_t imgWidthScaled, const uint32_t imgHeightScaled,
+            const std::vector<std::vector<Point2D>>& polygons);
 
     private:
         uint32_t _img_width{};

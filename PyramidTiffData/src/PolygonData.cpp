@@ -29,14 +29,10 @@ namespace jsoncons {
         }
 
         static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
-            // round to the nearest pixel rather than requiring an exact integer.
-            const double x = j[0].as_double();
-            const double y = j[1].as_double();
-
+            // Coordinates can carry sub-pixel precision (e.g. 10562.5)
             return {
-                .x = static_cast<uint32_t>(std::llround(x)),
-                .y = static_cast<uint32_t>(std::llround(y))
+                .x = j[0].as_double(),
+                .y = j[1].as_double()
             };
         }
 
@@ -295,56 +291,54 @@ namespace PyramidTiffData {
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_roi);
+        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_roi);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_tissue);
+        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_tissue);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_cell);
+        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_cell);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_nucleus);
+        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_nucleus);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor,
-        const std::vector<std::vector<Point2D>>& polygons_roi) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor, 
+        const uint32_t imgWidthScaled, const uint32_t imgHeightScaled,
+        const std::vector<std::vector<Point2D>>& polygons)
     {
         std::vector<uint32_t> indices{};
-        std::vector<uint32_t> pixel_counts{};
+        std::vector<uint32_t> pixelCounts{};
 
-        auto scale_coords = [](const std::vector<Point2D>& points, const double scaleFactor) -> std::vector<Point2D> {
+        auto scale_coords = [scaleFactor](const std::vector<Point2D>& points) -> std::vector<Point2D> {
             std::vector<Point2D> points_scaled(points.size());
 
 #pragma omp parallel for
             for (int64_t i = 0; i < static_cast<int64_t>(points.size()); ++i) {
                 points_scaled[i] = {
-                    .x = static_cast<uint32_t>(static_cast<double>(points[i].x) * scaleFactor),
-                    .y = static_cast<uint32_t>(static_cast<double>(points[i].y) * scaleFactor)
+                    .x = std::round(points[i].x * scaleFactor),
+                    .y = std::round(points[i].y * scaleFactor)
                 };
             }
 
             return points_scaled;
             };
 
-        const uint32_t img_width_scaled     = (scaleFactor == 1.0) ? _img_width : static_cast<uint32_t>(static_cast<double>(_img_width) * scaleFactor);
-        const uint32_t img_height_scaled    = (scaleFactor == 1.0) ? _img_height : static_cast<uint32_t>(static_cast<double>(_img_height) * scaleFactor);
-
         auto last_pct = ProgressBarInit();
         std::uintmax_t currentID = 0;
-        for (const auto& coords : polygons_roi) {
-            const auto& coords_scaled = (scaleFactor == 1.0) ? coords : scale_coords(coords, scaleFactor);
-            rasterize_polygon(coords_scaled, img_width_scaled, img_height_scaled, indices, pixel_counts);
+        for (const auto& coords : polygons) {
+            const auto& coords_scaled = (scaleFactor == 1.0) ? coords : scale_coords(coords);
+            rasterize_polygon(coords_scaled, imgWidthScaled, imgHeightScaled, indices, pixelCounts);
 
-            ProgressBarPrint(currentID++, last_pct, polygons_roi.size());
+            ProgressBarPrint(currentID++, last_pct, polygons.size());
         }
         ProgressBarFinish();
 
@@ -352,14 +346,14 @@ namespace PyramidTiffData {
 #pragma omp parallel for
         for (int64_t id = 0; id < static_cast<int64_t>(indices.size()); ++id) {
             const uint32_t v = indices[id];
-            const uint32_t row = v / img_width_scaled;
-            const uint32_t col = v % img_width_scaled;
-            indices[id] = (img_height_scaled - 1 - row) * img_width_scaled + col;
+            const uint32_t row = v / imgWidthScaled;
+            const uint32_t col = v % imgWidthScaled;
+            indices[id] = (imgHeightScaled - 1 - row) * imgWidthScaled + col;
         }
 
-        assert(indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
+        assert(indices.size() == std::reduce(pixelCounts.begin(), pixelCounts.end(), 0ull));
 
-        return { indices , pixel_counts };
+        return { indices , pixelCounts };
     }
 
     void PolygonData::print_info(const size_t max_polygons_to_show ) const

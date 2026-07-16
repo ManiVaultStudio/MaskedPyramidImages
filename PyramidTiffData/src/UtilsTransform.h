@@ -6,8 +6,8 @@
 namespace PyramidTiffData {
 
     struct Point2D {
-        uint32_t x;
-        uint32_t y;
+        double x;
+        double y;
 
         bool operator==(const Point2D&) const = default;
         bool operator!=(const Point2D&) const = default;
