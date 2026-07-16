@@ -309,11 +309,11 @@ void PyramidImage::read_level()
 
     // 0. Get data
     const auto selectedLevel = _infoAction->getResolutionsAction().getCurrentIndex();
-    fmt::println("PyramidImage::read_level: reading level {}...", selectedLevel);
-    const auto pyramidData = getRawData<PyramidImageData>();
+    const auto pyramidData   = getRawData<PyramidImageData>();
     const auto& imagePyramid = pyramidData->getPyramid();
-    const auto [lvlWidth, lvlHeight, lvlNumChannels, lvlChannelNames, lvlDataChannelMajor] = imagePyramid.read_level(selectedLevel);
     const double scaleFactor = imagePyramid.series().scaleFactor(selectedLevel);
+    fmt::println("PyramidImage::read_level: reading level {} (factor {:.5f})...", selectedLevel, scaleFactor);
+    const auto [lvlWidth, lvlHeight, lvlNumChannels, lvlChannelNames, lvlDataChannelMajor] = imagePyramid.read_level(selectedLevel);
     fmt::println("PyramidImage::read_level: read level with width {}, height {}", lvlWidth, lvlHeight);
 
     // Convert channel names
