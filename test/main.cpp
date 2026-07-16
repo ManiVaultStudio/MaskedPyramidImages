@@ -20,12 +20,20 @@ namespace jsoncons {
     template<class Json>
     struct json_type_traits<Json, PyramidTiffData::Point2D> {
         static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2;
+            return j.is_array() && j.size() >= 2 &&
+                j[0].is_number() && j[1].is_number();
         }
 
         static PyramidTiffData::Point2D as(const Json& j) {
-            // Use .template as<T>() when inside a template traits class
-            return { j[0].template as<uint32_t>(), j[1].template as<uint32_t>() };
+            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
+            // round to the nearest pixel rather than requiring an exact integer.
+            const double x = j[0].as_double();
+            const double y = j[1].as_double();
+
+            return {
+                .x = static_cast<uint32_t>(std::llround(x)),
+                .y = static_cast<uint32_t>(std::llround(y))
+            };
         }
 
         static Json to_json(const PyramidTiffData::Point2D& p) {
