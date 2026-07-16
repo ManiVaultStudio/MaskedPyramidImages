@@ -16,12 +16,12 @@
 #include <ranges>
 #include <string>
 
-#if !defined(__clang__) && (defined(__GNUC__) || defined(_MSC_VER))
-#if defined(__GNUC__)  // both TBB and Qt define emit keyword
+#if defined(__cpp_lib_execution)
+#if defined(__GNUC__)  // both TBB and Qt define emit keyword: undef
 #undef emit
 #endif
 #include <execution>
-#if defined(__GNUC__) // both TBB and Qt define emit keyword
+#if defined(__GNUC__) // both TBB and Qt define emit keyword: def again
 #define emit
 #endif
 #ifdef NDEBUG
@@ -29,11 +29,11 @@
 #else
 #define MV_PYRAMID_PARALLEL_EXECUTION std::execution::seq,
 #endif
-#else // __clang__
+#else
 #define MV_PYRAMID_PARALLEL_EXECUTION
 #endif
 
-Q_PLUGIN_METADATA(IID "studio.manivault.PyramidImageData")
+Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 
 using namespace mv;
 
@@ -51,7 +51,7 @@ namespace
         std::sort(MV_PYRAMID_PARALLEL_EXECUTION
             v.begin(),
             v.end());
-        auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
+        const auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
             v.begin(),
             v.end());
         v.erase(last, v.end());
@@ -228,9 +228,9 @@ QVariantMap PyramidImageData::toVariantMap() const
 // Data (Set)
 // =============================================================================
 
-const QString PyramidImage::SID_levelDatasets = QStringLiteral("LevelDatasets");
-const QString PyramidImage::SID_tiffFilePath = QStringLiteral("TiffFilePath");
-const QString PyramidImage::SID_jsonFilePath = QStringLiteral("JsonFilePath");
+const QString PyramidImage::SID_levelDatasets = QStringLiteral(u"LevelDatasets");
+const QString PyramidImage::SID_tiffFilePath = QStringLiteral(u"TiffFilePath");
+const QString PyramidImage::SID_jsonFilePath = QStringLiteral(u"JsonFilePath");
 
 PyramidImage::PyramidImage(const QString& dataName, const bool mayUnderive, const QString& guid) :
     DatasetImpl(dataName, mayUnderive, guid)
@@ -241,7 +241,7 @@ void PyramidImage::init()
 {
     DatasetImpl::init();
 
-	setIconByName("square-caret-up");
+	setIconByName(QStringLiteral(u"square-caret-up"));
 
     _infoAction = QSharedPointer<PyramidInfoAction>::create(nullptr, *this);
 
@@ -586,8 +586,7 @@ void PyramidImage::setSelectionIndices(std::vector<std::uint32_t>&& selectionInd
 
 bool PyramidImage::canSelect() const
 {
-    if (_levelDatasets.empty())
-	    return false;
+    if (_levelDatasets.empty()) return false;
 
     const mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
     return firstData->getNumPoints() > 0;
@@ -595,50 +594,43 @@ bool PyramidImage::canSelect() const
 
 bool PyramidImage::canSelectAll() const
 {
-    if (_levelDatasets.empty())
-        return false;
+    if (_levelDatasets.empty()) return false;
 
     return _levelDatasets.begin()->second.first->canSelectAll();
 }
 
 bool PyramidImage::canSelectNone() const
 {
-    if (_levelDatasets.empty())
-        return false;
+    if (_levelDatasets.empty()) return false;
 
     return _levelDatasets.begin()->second.first->canSelectNone();
 }
 
 bool PyramidImage::canSelectInvert() const
 {
-    if (_levelDatasets.empty())
-        return false;
+    if (_levelDatasets.empty()) return false;
 
     return _levelDatasets.begin()->second.first->canSelectInvert();
 }
 
 void PyramidImage::selectAll()
 {
-    if (!canSelectAll())
-        return;
+    if (!canSelectAll()) return;
 
     _levelDatasets.begin()->second.first->selectAll();
 }
 
 void PyramidImage::selectNone()
 {
-    if (!canSelectNone())
-        return;
-
+    if (!canSelectNone()) return;
+	
 	_selectionCount = 0;
-
     _levelDatasets.begin()->second.first->selectNone();
 }
 
 void PyramidImage::selectInvert()
 {
-    if (!canSelectInvert())
-        return;
+    if (!canSelectInvert()) return;
 
     _levelDatasets.begin()->second.first->selectInvert();
 }
@@ -658,8 +650,8 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
     }
     else {
         _infoAction->getReadLevelAction().setDisabled(true);
-        _infoAction->getTiffFilePathAction().setString(QStringLiteral("File not found"));
-        _infoAction->getJsonFilePathAction().setString(QStringLiteral("File not found"));
+        _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
+        _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
     }
 
     {
@@ -700,7 +692,7 @@ QVariantMap PyramidImage::toVariantMap() const
 
 PyramidImageDataFactory::PyramidImageDataFactory()
 {
-    RawDataFactory::setIconByName("database");
+    RawDataFactory::setIconByName(QStringLiteral(u"database"));
 }
 
 plugin::RawData* PyramidImageDataFactory::produce()
