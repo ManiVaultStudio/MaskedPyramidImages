@@ -588,8 +588,7 @@ void PyramidImage::setSelectionIndices(std::vector<std::uint32_t>&& selectionInd
 
 bool PyramidImage::canSelect() const
 {
-    if (_levelDatasets.empty())
-	    return false;
+    if (_levelDatasets.empty()) return false;
 
     const mv::Dataset<Points> firstData = _levelDatasets.begin()->second.first;
     return firstData->getNumPoints() > 0;
@@ -597,50 +596,43 @@ bool PyramidImage::canSelect() const
 
 bool PyramidImage::canSelectAll() const
 {
-    if (_levelDatasets.empty())
-        return false;
+    if (_levelDatasets.empty()) return false;
 
     return _levelDatasets.begin()->second.first->canSelectAll();
 }
 
 bool PyramidImage::canSelectNone() const
 {
-    if (_levelDatasets.empty())
-        return false;
+    if (_levelDatasets.empty()) return false;
 
     return _levelDatasets.begin()->second.first->canSelectNone();
 }
 
 bool PyramidImage::canSelectInvert() const
 {
-    if (_levelDatasets.empty())
-        return false;
+    if (_levelDatasets.empty()) return false;
 
     return _levelDatasets.begin()->second.first->canSelectInvert();
 }
 
 void PyramidImage::selectAll()
 {
-    if (!canSelectAll())
-        return;
+    if (!canSelectAll()) return;
 
     _levelDatasets.begin()->second.first->selectAll();
 }
 
 void PyramidImage::selectNone()
 {
-    if (!canSelectNone())
-        return;
-
+    if (!canSelectNone()) return;
+	
 	_selectionCount = 0;
-
     _levelDatasets.begin()->second.first->selectNone();
 }
 
 void PyramidImage::selectInvert()
 {
-    if (!canSelectInvert())
-        return;
+    if (!canSelectInvert()) return;
 
     _levelDatasets.begin()->second.first->selectInvert();
 }
