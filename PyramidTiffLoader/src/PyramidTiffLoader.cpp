@@ -5,18 +5,18 @@
 #include <Application.h>
 #include <Set.h>
 
-#include <QFileInfo>
 #include <QDir>
+#include <QFileInfo>
 #include <QMainWindow>
 
-Q_PLUGIN_METADATA(IID "studio.manivault.PyramidTiffLoader")
+Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidTiffLoader"))
 
 using namespace mv;
 
 namespace
 {
-    const QString TIFF_FILE_FILTER = "Tiff Files (*.tif *.tiff *.ome.tif *.ome.tiff)";
-    const QString JSON_FILE_FILTER = "JSON Files (*.json *.geojson)";
+    inline const QString TIFF_FILE_FILTER = QStringLiteral(u"Tiff Files (*.tif *.tiff *.ome.tif *.ome.tiff)");
+    inline const QString JSON_FILE_FILTER = QStringLiteral(u"JSON Files (*.json *.geojson)");
 }
 
 // =============================================================================
@@ -25,13 +25,13 @@ namespace
 
 PyramidTiffLoaderDialog::PyramidTiffLoaderDialog(QWidget* parent, PyramidTiffLoader* pyramidLoader, const QString& filePath) :
     QDialog(parent),
-    _datasetNameAction(this, "Dataset name", ""),
-    _inputTiffFilePickerAction(this, "Tiff file:"),
-    _inputJsonFilePickerAction(this, "JSON file:"),
-    _loadAction(this, "Load"),
-    _groupAction(this, "Settings")
+    _datasetNameAction(this, QStringLiteral(u"Dataset name"), QStringLiteral(u"")),
+    _inputTiffFilePickerAction(this, QStringLiteral(u"Tiff file:")),
+    _inputJsonFilePickerAction(this, QStringLiteral(u"JSON file:")),
+    _loadAction(this, QStringLiteral(u"Load")),
+    _groupAction(this, QStringLiteral(u"Settings"))
 {
-    setWindowTitle("Masked Image Pyramid Loader");
+    setWindowTitle(QStringLiteral(u"Masked Image Pyramid Loader"));
 
     _inputTiffFilePickerAction.setNameFilters({ TIFF_FILE_FILTER });
     _inputJsonFilePickerAction.setNameFilters({ JSON_FILE_FILTER });
@@ -127,7 +127,7 @@ void PyramidTiffLoader::loadData()
 
 PyramidTiffLoaderFactory::PyramidTiffLoaderFactory()
 {
-    LoaderPluginFactory::setIconByName("database");
+    LoaderPluginFactory::setIconByName(QStringLiteral(u"database"));
 }
 
 plugin::LoaderPlugin* PyramidTiffLoaderFactory::produce()
