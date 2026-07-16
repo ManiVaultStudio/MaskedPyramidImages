@@ -68,7 +68,7 @@ namespace PyramidTiffData
     private:
         void parse_mask_annotations(const std::filesystem::path& path);
 
-        static [[nodiscard]] std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(
+        [[nodiscard]] static std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(
             const double scaleFactorWidth, const double scaleFactorHeight,
             const uint32_t imgWidthScaled, const uint32_t imgHeightScaled,
             const std::vector<std::vector<Point2D>>& polygons);
