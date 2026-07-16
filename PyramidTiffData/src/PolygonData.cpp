@@ -291,41 +291,41 @@ namespace PyramidTiffData {
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_roi);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_roi);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_tissue);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_tissue);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_cell);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_cell);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactor, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, imgWidthScaled, imgHeightScaled, _polygons_nucleus);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_nucleus);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor, 
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactorWidth, const double scaleFactorHeight,
         const uint32_t imgWidthScaled, const uint32_t imgHeightScaled,
         const std::vector<std::vector<Point2D>>& polygons)
     {
         std::vector<uint32_t> indices{};
         std::vector<uint32_t> pixelCounts{};
 
-        auto scale_coords = [scaleFactor](const std::vector<Point2D>& points) -> std::vector<Point2D> {
+        auto scale_coords = [scaleFactorWidth, scaleFactorHeight](const std::vector<Point2D>& points) -> std::vector<Point2D> {
             std::vector<Point2D> points_scaled(points.size());
 
 #pragma omp parallel for
             for (int64_t i = 0; i < static_cast<int64_t>(points.size()); ++i) {
                 points_scaled[i] = {
-                    .x = std::round(points[i].x * scaleFactor),
-                    .y = std::round(points[i].y * scaleFactor)
+                    .x = std::round(points[i].x * scaleFactorWidth),
+                    .y = std::round(points[i].y * scaleFactorHeight)
                 };
             }
 
@@ -335,7 +335,7 @@ namespace PyramidTiffData {
         auto last_pct = ProgressBarInit();
         std::uintmax_t currentID = 0;
         for (const auto& coords : polygons) {
-            const auto& coords_scaled = (scaleFactor == 1.0) ? coords : scale_coords(coords);
+            const auto& coords_scaled = (scaleFactorWidth == 1.0) ? coords : scale_coords(coords);
             rasterize_polygon(coords_scaled, imgWidthScaled, imgHeightScaled, indices, pixelCounts);
 
             ProgressBarPrint(currentID++, last_pct, polygons.size());

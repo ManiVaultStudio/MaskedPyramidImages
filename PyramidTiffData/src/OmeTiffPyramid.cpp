@@ -582,7 +582,7 @@ namespace PyramidTiffData {
             for (size_t l_idx = 0; l_idx < s.pyramid.size(); ++l_idx) {
                 const auto& lvl = s.pyramid[l_idx];
 
-                const double scale = s.scaleFactor(l_idx);
+                const double scale = s.scaleFactorWidth(l_idx);
 
                 const auto storage =
                     (l_idx == 0)
@@ -590,7 +590,7 @@ namespace PyramidTiffData {
                     : fmt::format("{} SubIFDs", lvl.channel_subifd_offsets.size());
 
                 fmt::print(
-                    "    [{}] {:>6} x {:>6} | Scale: {:>5.2f}x | {}\n",
+                    "    [{}] {:>6} x {:>6} | Scale: {:>5.3f}x | {}\n",
                     l_idx,
                     lvl.width,
                     lvl.height,

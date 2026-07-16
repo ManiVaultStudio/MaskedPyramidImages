@@ -57,9 +57,12 @@ namespace PyramidTiffData
         // channel_subifd_offsets vector is empty - use channel_ifds instead.
         std::vector<ImageLevelInfo> pyramid{};
 
-        [[nodiscard]] double scaleFactor(const size_t level) const {
-           return static_cast<double>(pyramid.at(level).width) / static_cast<double>(width);
-        } 
+        [[nodiscard]] double scaleFactorWidth(const size_t level) const {
+            return static_cast<double>(pyramid.at(level).width) / static_cast<double>(width);
+        }
+        [[nodiscard]] double scaleFactorHeight(const size_t level) const {
+            return static_cast<double>(pyramid.at(level).height) / static_cast<double>(height);
+        }
     };
 
     // Collect metadata from the currently active IFD.
