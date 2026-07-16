@@ -136,7 +136,7 @@ namespace PyramidTiffData
         // Lazily load one level: returns float32 data shaped [channels, height, width]
         // Only reads the IFDs for this level - other levels untouched.
         [[nodiscard]] Image read_level(const size_t series_idx, const size_t level_idx) const;
-        [[nodiscard]] Image read_level(const size_t level_idx) const { return read_level(0, level_idx); };
+        [[nodiscard]] Image read_level(const size_t level_idx) const { return read_level(0, level_idx); }
 
         [[nodiscard]] size_t num_series() const noexcept { return _series.size(); }
 
