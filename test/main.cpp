@@ -25,14 +25,10 @@ namespace jsoncons {
         }
 
         static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
-            // round to the nearest pixel rather than requiring an exact integer.
-            const double x = j[0].as_double();
-            const double y = j[1].as_double();
-
+            // Coordinates can carry sub-pixel precision (e.g. 10562.5)
             return {
-                .x = static_cast<uint32_t>(std::llround(x)),
-                .y = static_cast<uint32_t>(std::llround(y))
+                .x = j[0].as_double(),
+                .y = j[1].as_double()
             };
         }
 
