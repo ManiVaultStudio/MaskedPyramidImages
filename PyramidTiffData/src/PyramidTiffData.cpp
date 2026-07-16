@@ -35,7 +35,7 @@
 #define MV_PYRAMID_PARALLEL_EXECUTION
 #endif
 
-Q_PLUGIN_METADATA(IID "studio.manivault.PyramidImageData")
+Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 
 using namespace mv;
 
@@ -230,9 +230,9 @@ QVariantMap PyramidImageData::toVariantMap() const
 // Data (Set)
 // =============================================================================
 
-const QString PyramidImage::SID_levelDatasets = QStringLiteral("LevelDatasets");
-const QString PyramidImage::SID_tiffFilePath = QStringLiteral("TiffFilePath");
-const QString PyramidImage::SID_jsonFilePath = QStringLiteral("JsonFilePath");
+const QString PyramidImage::SID_levelDatasets = QStringLiteral(u"LevelDatasets");
+const QString PyramidImage::SID_tiffFilePath = QStringLiteral(u"TiffFilePath");
+const QString PyramidImage::SID_jsonFilePath = QStringLiteral(u"JsonFilePath");
 
 PyramidImage::PyramidImage(const QString& dataName, const bool mayUnderive, const QString& guid) :
     DatasetImpl(dataName, mayUnderive, guid)
@@ -243,7 +243,7 @@ void PyramidImage::init()
 {
     DatasetImpl::init();
 
-	setIconByName("square-caret-up");
+	setIconByName(QStringLiteral(u"square-caret-up"));
 
     _infoAction = QSharedPointer<PyramidInfoAction>::create(nullptr, *this);
 
@@ -652,8 +652,8 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
     }
     else {
         _infoAction->getReadLevelAction().setDisabled(true);
-        _infoAction->getTiffFilePathAction().setString(QStringLiteral("File not found"));
-        _infoAction->getJsonFilePathAction().setString(QStringLiteral("File not found"));
+        _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
+        _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
     }
 
     {
@@ -694,7 +694,7 @@ QVariantMap PyramidImage::toVariantMap() const
 
 PyramidImageDataFactory::PyramidImageDataFactory()
 {
-    RawDataFactory::setIconByName("database");
+    RawDataFactory::setIconByName(QStringLiteral(u"database"));
 }
 
 plugin::RawData* PyramidImageDataFactory::produce()
