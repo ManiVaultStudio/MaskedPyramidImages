@@ -121,7 +121,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
 
             vcpkg_triplet = "x64-windows"
             if self.settings.os == "Macos":
-                vcpkg_triplet = "x64-osx"
+                vcpkg_triplet = "arm64-osx"
             if self.settings.os == "Linux":
                 vcpkg_triplet = "x64-linux"
 

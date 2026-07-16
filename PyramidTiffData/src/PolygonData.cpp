@@ -55,67 +55,28 @@ namespace PyramidTiffData {
     // Helper
     // =============================================================================
 
-    void rasterize_polygon(const std::vector<Point2D>& points, const uint32_t img_width, const uint32_t img_height,
-        std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts)
+    constexpr uintmax_t ProgressBarWidth = 40;
+
+    inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
     {
-        if (points.empty()) return;
-        if (points.front() != points.back()) return;
-
-        // Find bounding box to limit search area
-        uint32_t minY = points[0].y;
-        uint32_t maxY = points[0].y;
-        for (const auto& [p_x, p_y] : points) {
-            minY = std::min(minY, p_y);
-            maxY = std::max(maxY, p_y);
+        const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
+        if (pct != previous_pct) {
+            previous_pct = pct;
+            const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
+            fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
+            [[maybe_unused]] int success = std::fflush(stdout);
         }
 
-        const uint32_t count_before = static_cast<uint32_t>(indices.size());
-        const auto img_width_d = static_cast<double>(img_width);
-        const auto max_id = static_cast<uint64_t>(img_width) * img_height;
+    }
 
-        // Iterate through each scanline
-        for (uint32_t y = minY; y <= maxY; ++y) {
-            const double scanline = static_cast<double>(y) + 0.5; // pixel center
+    inline void ProgressBarFinish()
+    {
+        fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
+    }
 
-            std::vector<uint32_t> nodes;
-            size_t j = points.size() - 1;
-
-            // Find intersections of the scanline with polygon edges
-            for (size_t i = 0; i < points.size(); ++i) {
-                const double yi = static_cast<double>(points[i].y);
-                const double yj = static_cast<double>(points[j].y);
-
-                if ((yi <= scanline && yj > scanline) || (yj <= scanline && yi > scanline)) {
-                	const double nodeX = static_cast<double>(points[i].x)
-                        + (scanline - yi) / (yj - yi)
-                        * (static_cast<double>(points[j].x) - static_cast<double>(points[i].x));
-                	
-                    const double clampedX = std::clamp(nodeX, 0.0, img_width_d - 1.0);
-                    nodes.push_back(static_cast<uint32_t>(clampedX));
-                }
-                j = i;
-            }
-
-        	std::ranges::sort(nodes);
-
-            // Fill pixels between pairs of nodes (Even-Odd rule)
-            for (size_t i = 0; i < nodes.size(); i += 2) {
-                if (i + 1 >= nodes.size()) break;
-
-                const uint32_t leftX = nodes[i];
-                const uint32_t rightX = nodes[i + 1];
-
-                for (uint32_t x = leftX; x < rightX; ++x) {
-                    // Convert 2D to 1D index
-                    if (const uint64_t idx = static_cast<uint64_t>(y) * img_width + x;
-                        idx < max_id)
-                        indices.push_back(static_cast<uint32_t>(idx));
-                }
-            }
-        }
-
-        const uint32_t count_after = static_cast<uint32_t>(indices.size());
-        pixel_counts.push_back(count_after - count_before);
+    inline std::uintmax_t ProgressBarInit()
+    {
+        return 0;
     }
 
     // =============================================================================
@@ -242,12 +203,12 @@ namespace PyramidTiffData {
             int unnamed_cell_counter = 0;
             bool in_features_array = false;
 
-            uintmax_t last_pct = -1;
             const uintmax_t total_bytes = std::filesystem::file_size(path);
             jsoncons::json_decoder<jsoncons::json> decoder;
 
             fmt::println("Reading the json file...");
 
+            auto last_pct = ProgressBarInit();
             for (; !cursor.done(); cursor.next())
             {
                 const auto& event = cursor.current();
@@ -311,20 +272,10 @@ namespace PyramidTiffData {
                     break;
                 }
 
-                // progress bar
                 const auto pos = f.tellg();
-                const uintmax_t pct = total_bytes > 0
-                    ? static_cast<int>((static_cast<std::uintmax_t>(pos) * 100) / total_bytes)
-                    : 0;
-                if (pos > 0 && pct != last_pct) {
-                    last_pct = pct;
-                    constexpr uintmax_t bar_width = 40;
-                    const int filled = static_cast<int>(static_cast<double>(bar_width * pct) / 100.0);
-                    fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", bar_width - filled, pct);
-                    [[maybe_unused]] int success = std::fflush(stdout);
-                }
+                if (pos > 0) ProgressBarPrint(static_cast<std::uintmax_t>(pos), last_pct, total_bytes);
             }
-            fmt::print("\n"); // move past the progress line
+            ProgressBarFinish();
         }
         catch (const std::exception& err) {
             fmt::println("PolygonData::parse_mask_annotations: json parse error: {}", err.what());
@@ -341,7 +292,7 @@ namespace PyramidTiffData {
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
-        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_cellNucleus.size());
+        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor) const
@@ -367,13 +318,14 @@ namespace PyramidTiffData {
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor,
         const std::vector<std::vector<Point2D>>& polygons_roi) const
     {
-        std::vector<uint32_t> positive_indices{};
+        std::vector<uint32_t> indices{};
         std::vector<uint32_t> pixel_counts{};
 
         auto scale_coords = [](const std::vector<Point2D>& points, const double scaleFactor) -> std::vector<Point2D> {
             std::vector<Point2D> points_scaled(points.size());
 
-            for (std::size_t i = 0; i < points.size(); ++i) {
+#pragma omp parallel for
+            for (int64_t i = 0; i < static_cast<int64_t>(points.size()); ++i) {
                 points_scaled[i] = {
                     .x = static_cast<uint32_t>(static_cast<double>(points[i].x) * scaleFactor),
                     .y = static_cast<uint32_t>(static_cast<double>(points[i].y) * scaleFactor)
@@ -383,28 +335,31 @@ namespace PyramidTiffData {
             return points_scaled;
             };
 
-        if (scaleFactor == 1.0) {
-            for (const auto& coords : polygons_roi) {
-                rasterize_polygon(coords, _img_width, _img_height, positive_indices, pixel_counts);
-            }
+        const uint32_t img_width_scaled     = (scaleFactor == 1.0) ? _img_width : static_cast<uint32_t>(static_cast<double>(_img_width) * scaleFactor);
+        const uint32_t img_height_scaled    = (scaleFactor == 1.0) ? _img_height : static_cast<uint32_t>(static_cast<double>(_img_height) * scaleFactor);
+
+        auto last_pct = ProgressBarInit();
+        std::uintmax_t currentID = 0;
+        for (const auto& coords : polygons_roi) {
+            const auto& coords_scaled = (scaleFactor == 1.0) ? coords : scale_coords(coords, scaleFactor);
+            rasterize_polygon(coords_scaled, img_width_scaled, img_height_scaled, indices, pixel_counts);
+
+            ProgressBarPrint(currentID++, last_pct, polygons_roi.size());
         }
-        else
-        {
-            const uint32_t img_width_scaled     = static_cast<uint32_t>(static_cast<double>(_img_width) * scaleFactor);
-            const uint32_t img_height_scaled    = static_cast<uint32_t>(static_cast<double>(_img_height) * scaleFactor);
+        ProgressBarFinish();
 
-            for (const auto& coords : polygons_roi) {
-                const auto coords_scaled = scale_coords(coords, scaleFactor);
-                rasterize_polygon(coords_scaled, img_width_scaled, img_height_scaled, positive_indices, pixel_counts);
-            }
+        // flip the mask IDs
+#pragma omp parallel for
+        for (int64_t id = 0; id < static_cast<int64_t>(indices.size()); ++id) {
+            const uint32_t v = indices[id];
+            const uint32_t row = v / img_width_scaled;
+            const uint32_t col = v % img_width_scaled;
+            indices[id] = (img_height_scaled - 1 - row) * img_width_scaled + col;
         }
 
-        positive_indices.shrink_to_fit();
-        pixel_counts.shrink_to_fit();
+        assert(indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
 
-        assert(positive_indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
-
-        return { positive_indices , pixel_counts };
+        return { indices , pixel_counts };
     }
 
     void PolygonData::print_info(const size_t max_polygons_to_show ) const

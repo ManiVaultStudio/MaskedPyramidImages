@@ -16,127 +16,9 @@
 #include <ranges>
 #include <string>
 
-#if defined(__cpp_lib_execution)
-#if defined(__GNUC__)  // both TBB and Qt define emit keyword: undef
-#undef emit
-#endif
-#include <execution>
-#if defined(__GNUC__) // both TBB and Qt define emit keyword: def again
-#define emit
-#endif
-#ifdef NDEBUG
-#define MV_PYRAMID_PARALLEL_EXECUTION std::execution::par,
-#else
-#define MV_PYRAMID_PARALLEL_EXECUTION std::execution::seq,
-#endif
-#else
-#define MV_PYRAMID_PARALLEL_EXECUTION
-#endif
-
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 
 using namespace mv;
-
-// =============================================================================
-// Helper
-// =============================================================================
-
-namespace
-{
-    void sortAndUnique(std::vector<uint32_t>& v)
-    {
-        if (v.size() <= 1)
-            return;
-
-        std::sort(MV_PYRAMID_PARALLEL_EXECUTION
-            v.begin(),
-            v.end());
-        const auto last = std::unique(MV_PYRAMID_PARALLEL_EXECUTION
-            v.begin(),
-            v.end());
-        v.erase(last, v.end());
-    }
-
-    std::vector<uint32_t> convertSelectionToDownscaled(
-        const std::vector<uint32_t>& selectedIndices,
-        const uint32_t originalWidth, const uint32_t originalHeight,
-        const uint32_t newWidth, const uint32_t newHeight)
-    {
-        const double scaleFactor = static_cast<double>(newWidth) / static_cast<double>(originalWidth);
-        assert(scaleFactor <= 1.0);
-
-        const uint32_t newSize = newWidth * newHeight;
-        std::vector<uint8_t> bitmap(newSize, 0);
-
-        uint32_t prevIdx = 0;
-        uint32_t x = 0;
-        uint32_t y = 0;
-
-        for (const uint32_t idx : selectedIndices) {
-            const uint32_t delta = idx - prevIdx;
-            x += delta;
-            while (x >= originalWidth) {
-                x -= originalWidth; ++y;
-            }
-            prevIdx = idx;
-
-            const uint32_t newX = static_cast<uint32_t>(static_cast<double>(x) * scaleFactor);
-            const uint32_t newY = static_cast<uint32_t>(static_cast<double>(y) * scaleFactor);
-
-            bitmap[newY * newWidth + newX] = 1;
-        }
-
-        std::vector<uint32_t> result;
-        result.reserve(newSize); // upper bound
-        for (uint32_t i = 0; i < newSize; ++i)
-            if (bitmap[i]) result.push_back(i);
-        result.shrink_to_fit();
-        return result;
-    }
-
-    std::vector<uint32_t> convertSelectionToUpscaled(
-        const std::vector<uint32_t>& selectedIndices,
-        const uint32_t originalWidth, const uint32_t originalHeight,
-        const uint32_t newWidth, const uint32_t newHeight)
-    {
-        if (selectedIndices.empty())
-            return {};
-
-        const double scaleFactor = static_cast<double>(newWidth) / static_cast<double>(originalWidth);
-        assert(scaleFactor >= 1.0);
-
-        const uint32_t newSize = newWidth * newHeight;
-        std::vector<uint8_t> bitmap(newSize, 0);
-
-        uint32_t prevIdx = 0;
-        uint32_t x = 0, y = 0;
-
-        for (const uint32_t idx : selectedIndices) {
-            const uint32_t delta = idx - prevIdx;
-            x += delta;
-            while (x >= originalWidth) { x -= originalWidth; ++y; }
-            prevIdx = idx;
-
-            // Expand each pixel into a d by d block
-            // The inverse of floor(newX / scaleFactor) == x
-            // is the range: [x * scaleFactor, (x+1) * scaleFactor)
-            const uint32_t newXStart = static_cast<uint32_t>(std::floor(x * scaleFactor));
-            const uint32_t newXEnd = std::min(static_cast<uint32_t>(std::floor((x + 1) * scaleFactor)), newWidth);
-            const uint32_t newYStart = static_cast<uint32_t>(std::floor(y * scaleFactor));
-            const uint32_t newYEnd = std::min(static_cast<uint32_t>(std::floor((y + 1) * scaleFactor)), newHeight);
-
-            for (uint32_t ny = newYStart; ny < newYEnd; ++ny)
-                std::memset(&bitmap[ny * newWidth + newXStart], 1, newXEnd - newXStart);
-        }
-
-        std::vector<uint32_t> result;
-        result.reserve(newSize); // upper bound
-        for (uint32_t i = 0; i < newSize; ++i)
-            if (bitmap[i]) result.push_back(i);
-        result.shrink_to_fit();
-        return result;
-    }
-}
 
 // =============================================================================
 // Data (Raw)
@@ -321,15 +203,15 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& selectionInputData)
 	// Map from level to base
     mv::Dataset<Points> selectionIDs = selectionInputData->getSelection();
 
-    sortAndUnique(selectionIDs->indices);
+    PyramidTiffData::sortAndUnique(selectionIDs->indices);
 
     auto baseIndices = (fromLevel == 0) ?
         selectionIDs->indices :
-        convertSelectionToUpscaled(selectionIDs->indices, 
+        PyramidTiffData::convertSelectionToUpscaled(selectionIDs->indices,
             fromLevelWidth, fromLevelHeigh, 
             baseWidth, baseHeigh);
 
-    sortAndUnique(baseIndices);
+    PyramidTiffData::sortAndUnique(baseIndices);
 
     // Map from base to all other levels
     for (const auto& [toLevelID, toLevelPair] : _levelDatasets)
@@ -343,7 +225,7 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& selectionInputData)
         // Map from base to level
         if (toLevel != fromLevel) {
             toLevelData->getSelection<Points>()->indices = 
-                convertSelectionToDownscaled(baseIndices,
+                PyramidTiffData::convertSelectionToDownscaled(baseIndices,
                 baseWidth, baseHeigh,
                 toLevelWidth, toLevelHeigh);
         }
@@ -488,15 +370,6 @@ void PyramidImage::read_level()
     auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, const std::vector<std::string>& polygonNames,
         const QString& dataPrefix, const std::vector<std::array<uint8_t, 3>>* colors = nullptr)
     {
-        // flip the mask IDs
-#pragma omp parallel for
-        for (int64_t id = 0; id < static_cast<int64_t>(maskIDs.size()); ++id) {
-            uint32_t v = maskIDs[id];
-            uint32_t row = v / lvlWidth;
-            uint32_t col = v % lvlWidth;
-            maskIDs[id] = (lvlHeight - 1 - row) * lvlWidth + col;
-        }
-
         auto pointsDatasetLevelSelection = pointsDatasetLevel->getSelection<Points>();
         auto& selectionIDs = pointsDatasetLevelSelection->indices;
         selectionIDs.clear();
@@ -548,21 +421,25 @@ void PyramidImage::read_level()
 
     if (pyramidData->getPolygons().has_roi())
     {
+        fmt::println("Transform ROI mask");
         auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().getMaskRoi(scaleFactor);
         publicMaskData(maskIDs_roi, pixel_counts_roi, pyramidData->getPolygons().names_roi(), "ROI", &pyramidData->getPolygons().colors_roi());
     }
     if (pyramidData->getPolygons().has_tissue())
     {
+        fmt::println("Transform TISSUE mask");
         auto [maskIDs_tissue, pixel_counts_tissue] = pyramidData->getPolygons().getMaskTissue(scaleFactor);
         publicMaskData(maskIDs_tissue, pixel_counts_tissue, pyramidData->getPolygons().names_tissue(), "TISSUE", &pyramidData->getPolygons().colors_tissue());
     }
     if (pyramidData->getPolygons().has_cell())
     {
+        fmt::println("Transform CELL mask");
         auto [maskIDs_cell, pixel_counts_cell] = pyramidData->getPolygons().getMaskCell(scaleFactor);
         publicMaskData(maskIDs_cell, pixel_counts_cell, pyramidData->getPolygons().names_cell(), "CELL");
     }
     if (pyramidData->getPolygons().has_nucleus())
     {
+        fmt::println("Transform NUCLEUS mask");
         auto [maskIDs_nucleus, pixel_counts_nucleus] = pyramidData->getPolygons().getMaskNucleus(scaleFactor);
         publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, pyramidData->getPolygons().names_cell(), "NUCLEUS");
     }
