@@ -78,7 +78,7 @@ namespace utils
                         const auto points = coords[0].as<std::vector<PyramidTiffData::Point2D>>();
                     }
                     catch (const std::exception& e) {
-                        std::cerr << "Error parsing coordinates: " << e.what() << std::endl;
+                       fmt::println("Error parsing coordinates: {}", e.what());
                     }
                 }
             }
