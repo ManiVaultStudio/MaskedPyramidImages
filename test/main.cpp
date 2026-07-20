@@ -1,5 +1,8 @@
 #include "OmeTiffPyramid.h"
 #include "PolygonData.h"
+#include "UtilsTransform.h"
+
+#include "UtilsRoiArrangement.h"
 
 #include <fstream>
 #include <filesystem>
@@ -43,16 +46,6 @@ namespace jsoncons {
 
 using namespace jsoncons;
 
-namespace PyramidTiffData
-{
-    struct Rect
-    {
-        uint32_t x, y, w, h;
-
-        bool operator==(const Rect&) const = default;
-    };
-}
-
 namespace utils
 {
     static std::filesystem::path change_extension(
@@ -62,6 +55,14 @@ namespace utils
         auto result = p;
         result.replace_extension(ext);
         return result;
+    }
+
+    static std::filesystem::path insertSuffixExtension(
+        const std::filesystem::path& p,
+        const std::string& suffix)
+    {
+        return p.parent_path() /
+            (p.stem().string() + suffix + p.extension().string());
     }
 
     static void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath, int file_number) {
@@ -269,101 +270,6 @@ namespace utils
         PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_channel));
     }
 
-    static void read_roi_recs(const std::filesystem::path& json_path)
-    {
-        std::ifstream input_file(json_path);
-
-        json_stream_cursor cursor(input_file);
-        json_decoder<ojson> decoder;
-
-        std::vector<PyramidTiffData::Rect> recs;
-        bool in_features_array = false;
-
-        // Stream through the input
-        while (!cursor.done())
-        {
-            const auto& event = cursor.current();
-
-            switch (event.event_type())
-            {
-            case staj_event_type::key:
-            {
-                auto key = event.get<jsoncons::string_view>();
-                if (key == "features") {
-                    in_features_array = true;
-                }
-                break;
-            }
-
-            case staj_event_type::begin_object:
-            {
-                if (in_features_array)
-                {
-                    cursor.read_to(decoder);
-                    ojson feature = decoder.get_result();
-
-                    if (!feature.contains("properties")) break;
-
-                    const auto& props = feature.at("properties");
-                    if (!props.contains("classification")) break;
-
-                    const auto& classification = props.at("classification");
-                    if (!classification.contains("name")) break;
-
-                    if (classification.at("name").as<std::string>() == "ROI")
-                    {
-                        const auto& coords = feature["geometry"]["coordinates"][0].as<std::vector<PyramidTiffData::Point2D>>();
-
-                        double min_x = std::numeric_limits<double>::max();
-                        double min_y = std::numeric_limits<double>::max();
-                        double max_x = std::numeric_limits<double>::lowest();
-                        double max_y = std::numeric_limits<double>::lowest();
-
-                        for (const auto& coord : coords)
-                        {
-                            min_x = std::min(min_x, coord.x);
-                            min_y = std::min(min_y, coord.y);
-                            max_x = std::max(max_x, coord.x);
-                            max_y = std::max(max_y, coord.y);
-                        }
-
-                        recs.emplace_back(
-                            static_cast<uint32_t>(min_x),
-                            static_cast<uint32_t>(min_y),
-                            static_cast<uint32_t>(max_x - min_x),
-                            static_cast<uint32_t>(max_y - min_y)
-                        );
-                    }
-
-                }
-                break;
-            }
-
-            case staj_event_type::end_array:
-            {
-                if (in_features_array) {
-                    in_features_array = false;
-                }
-                break;
-            }
-
-            default:
-                break;
-            }
-
-            cursor.next();
-        }
-
-        input_file.close();
-
-        for (const auto& r: recs)
-        {
-            fmt::println("x = {}, y = {}, w = {}, h = {}", r.x, r.y, r.w, r.h);
-        }
-
-    }
-
-
 }
 
 // Reads a tiff file that contains an image pyramid
@@ -380,11 +286,16 @@ int main(int argc, char* argv[]) {
     fmt::println("Reading file: {}", img_path);
     fmt::println("JSON file: {}", json_path);
 
+    constexpr bool VERBOSE = true;
+
 	try {
         //utils::copy_tiff_file(img_path, json_path);
         //utils::split_json_file(json_path);
         //utils::extract_roi_json_file(json_path);
-        utils::read_roi_recs(json_path);
+
+        PyramidTiffData::repack_rois_to_pyramid(img_path, json_path,
+            utils::insertSuffixExtension(img_path, "new"),
+            utils::insertSuffixExtension(json_path, "new"));
     }
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());

@@ -170,7 +170,7 @@ namespace PyramidTiffData
 		// PLANARCONFIG_CONTIG the IFD holds spp interleaved channels; for
 		// PLANARCONFIG_SEPARATE each IFD holds exactly one channel.
         void read_ifd_scanlines(
-            float* output,
+            float*        output,
             uint32_t      level_width,
             uint32_t      level_height,
             uint32_t      channel_offset,   // channel index of first sample in this IFD

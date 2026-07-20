@@ -10,6 +10,7 @@ target_sources(tifftest
         ../PyramidTiffData/src/OmeTiffPyramid.cpp
         ../PyramidTiffData/src/PolygonData.cpp
         ../PyramidTiffData/src/UtilsTransform.cpp
+        ../PyramidTiffData/src/UtilsRoiArrangement.cpp
 )
 
 target_include_directories(tifftest
