@@ -448,7 +448,7 @@ namespace PyramidTiffData {
             for (uint32_t sy = 0; sy < rows_to_read; ++sy) {
                 for (uint32_t sx = 0; sx < w; ++sx) {
                     for (uint16_t c = 0; c < spp; ++c) {
-                        const size_t out_idx = static_cast<size_t>(c) * w * h + (y + sy) * w + sx;
+                        const size_t out_idx = static_cast<size_t>(c) * w * h + static_cast<size_t>(y + sy) * w + sx;
                         out[out_idx] = decoded[static_cast<size_t>(sy) * w * spp + static_cast<size_t>(sx) * spp + c];
                     }
                 }

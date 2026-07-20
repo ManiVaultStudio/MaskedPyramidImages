@@ -630,14 +630,14 @@ namespace PyramidTiffData {
         };
         std::vector<LevelCanvas> canvases(series.pyramid.size());
 
-        fmt::print("Level:");
         for (size_t level_idx = 0; level_idx < series.pyramid.size(); ++level_idx) {
-            fmt::print("{}, ", level_idx);
-            const auto rects = scale_placements_to_level(layout, series, level_idx);
+        	const auto rects = scale_placements_to_level(layout, series, level_idx);
             const uint32_t cell_w = rects.front().cell_w;
             const uint32_t cell_h = rects.front().cell_h;
-            const uint32_t canvas_w = layout.grid_cols * cell_w;
-            const uint32_t canvas_h = layout.grid_rows * cell_h;
+            const uint32_t pad_x = rects.front().pad_x;
+            const uint32_t pad_y = rects.front().pad_y;
+            const uint32_t canvas_w = layout.grid_cols * cell_w + (layout.grid_cols > 0 ? (layout.grid_cols - 1) * pad_x : 0);
+            const uint32_t canvas_h = layout.grid_rows * cell_h + (layout.grid_rows > 0 ? (layout.grid_rows - 1) * pad_y : 0);
 
             LevelCanvas& lc = canvases[level_idx];
             lc.width = canvas_w;
@@ -649,8 +649,17 @@ namespace PyramidTiffData {
             if (src_level.channels != series.channels)
                 throw std::runtime_error("RoiArrangement: unexpected channel count reading source level");
 
+            fmt::println("Level {} -> {}x{} (source level {}x{})",
+                level_idx, canvas_w, canvas_h, src_level.width, src_level.height);
+
+            size_t count = 0;
             for (const auto& r : rects) {
                 if (r.src_w == 0 || r.src_h == 0) continue;
+
+                fmt::println("Rec {}: from {}x{} to {}x{} - size {}x{}", count++, r.src_x, r.src_y, r.dest_x, r.dest_y, r.src_w, r.src_h);
+                
+            	// data is stored in [Channel][Height][Width] (C, H, W) order
+                // const size_t out_idx = static_cast<size_t>(c) * w * h + static_cast<size_t>(y + sy) * w + sx;
                 for (uint32_t c = 0; c < series.channels; ++c) {
                     const float* src_plane = src_level.data.data() +
                         static_cast<size_t>(c) * src_level.width * src_level.height;
@@ -664,9 +673,6 @@ namespace PyramidTiffData {
                     }
                 }
             }
-
-            fmt::print("RoiArrangement: level {} -> {}x{} (source level {}x{})\n",
-                level_idx, canvas_w, canvas_h, src_level.width, src_level.height);
         }
 
         // --- Pass 2: write the output pyramid TIFF. ---
