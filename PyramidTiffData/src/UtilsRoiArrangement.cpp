@@ -77,6 +77,7 @@ namespace PyramidTiffData {
         int unnamed_roi_counter = 0;
         int unnamed_tissue_counter = 0;
         int unnamed_cell_counter = 0;
+        std::string current_roi_name;
         bool in_features_array = false;
 
         auto assign_min_max = [](PyramidTiffData::Roi& mask)
@@ -105,6 +106,7 @@ namespace PyramidTiffData {
 
                 if (maskType == MaskType::Roi) {
                     parseName(feature, mask.name, "ROI", unnamed_roi_counter);
+                    current_roi_name = mask.name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
                     parseColor(feature, mask.colors);
@@ -112,6 +114,7 @@ namespace PyramidTiffData {
                 }
                 else if (maskType == MaskType::Tissue) {
                     parseNameID(feature, mask.id, "TISSUE", unnamed_tissue_counter);
+                    mask.name = current_roi_name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
                     parseColor(feature, mask.colors);
@@ -119,13 +122,17 @@ namespace PyramidTiffData {
                 }
                 else if (maskType == MaskType::Cell) {
                     parseNameID(feature, mask.id, "CELL", unnamed_cell_counter);
+                    mask.name = current_roi_name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
-                    cells.push_back(std::move(mask));
 
                     PyramidTiffData::Roi maskNucleus;
+                    maskNucleus.name = current_roi_name;
+                    maskNucleus.id = mask.id;
                     parseGeometryNucleus(feature, maskNucleus.ring);
                     assign_min_max(maskNucleus);
+
+                    cells.push_back(std::move(mask));
                     nuclei.push_back(std::move(maskNucleus));
                 }
             };
