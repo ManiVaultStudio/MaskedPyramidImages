@@ -566,6 +566,8 @@ namespace PyramidTiffData {
                     }
                 }
             } else {
+                TIFFUnsetField(out, TIFFTAG_TILEWIDTH);
+                TIFFUnsetField(out, TIFFTAG_TILELENGTH);
                 std::vector<uint8_t> row_buf(static_cast<size_t>(canvas_w) * bytes_per_sample);
                 for (uint32_t y = 0; y < canvas_h; ++y) {
                     encode_float_row(plane + static_cast<size_t>(y) * canvas_w, row_buf.data(),
@@ -579,48 +581,170 @@ namespace PyramidTiffData {
                 throw std::runtime_error("RoiArrangement: TIFFWriteDirectory failed");
         }
 
-    } // namespace
+        struct LevelCanvas {
+            uint32_t width{}, height{};
+            std::vector<std::vector<float>> channel_planes; // [channel][h*w]
+        };
 
-    void write_pixels(TIFF* out, const float* plane, uint32_t w, uint32_t h, uint16_t bps, uint16_t fmt, uint32_t tile_size) {
-        const size_t bytes_per_sample = bps / 8;
+        // Compacted canvases are, by construction, much smaller than the source
+		// levels, so holding every level's canvas in memory at once is cheap -
+		// and it's required, because the TIFF SubIFD chain for one channel must
+		// be written as a contiguous run of directories (level 0 then its
+		// SubIFDs), so all of a channel's levels must be ready before writing
+		// starts for that channel.
+        std::vector<LevelCanvas> shift_roi_to_new_canvas(
+            const OmeTiffPyramid& tiff_pyramid, 
+            const TiffSeries& series, const size_t series_idx,
+            const RoiLayout& layout)
+        {
+            std::vector<LevelCanvas> canvases(series.pyramid.size());
 
-        if (tile_size > 0) {
-            uint32_t tw = (tile_size / 16) * 16;
-            TIFFSetField(out, TIFFTAG_TILEWIDTH, tw);
-            TIFFSetField(out, TIFFTAG_TILELENGTH, tw);
+            for (size_t level_idx = 0; level_idx < series.pyramid.size(); ++level_idx) {
+                const auto rects = scale_placements_to_level(layout, series, level_idx);
+                const uint32_t cell_w = rects.front().cell_w;
+                const uint32_t cell_h = rects.front().cell_h;
+                const uint32_t pad_x = rects.front().pad_x;
+                const uint32_t pad_y = rects.front().pad_y;
+                const uint32_t canvas_w = layout.grid_cols * cell_w + (layout.grid_cols > 0 ? (layout.grid_cols - 1) * pad_x : 0);
+                const uint32_t canvas_h = layout.grid_rows * cell_h + (layout.grid_rows > 0 ? (layout.grid_rows - 1) * pad_y : 0);
 
-            std::vector<uint8_t> tile_buf(static_cast<size_t>(tw) * tw * bytes_per_sample);
-            std::vector<float> tile_f(static_cast<size_t>(tw) * tw);
+                LevelCanvas& lc = canvases[level_idx];
+                lc.width = canvas_w;
+                lc.height = canvas_h;
+                lc.channel_planes.assign(
+                    series.channels, std::vector<float>(static_cast<size_t>(canvas_w) * canvas_h, 0.0f));
 
-            for (uint32_t ty = 0; ty < h; ty += tw) {
-                for (uint32_t tx = 0; tx < w; tx += tw) {
-                    std::fill(tile_f.begin(), tile_f.end(), 0.0f);
-                    uint32_t copy_h = std::min(tw, h - ty);
-                    uint32_t copy_w = std::min(tw, w - tx);
-                    for (uint32_t y = 0; y < copy_h; ++y) {
-                        std::copy(plane + (size_t(ty + y) * w + tx),
-                            plane + (size_t(ty + y) * w + tx + copy_w),
-                            tile_f.data() + (size_t(y) * tw));
+                const PyramidTiffData::Image src_level = tiff_pyramid.read_level(series_idx, level_idx);
+                if (src_level.channels != series.channels)
+                    throw std::runtime_error("RoiArrangement: unexpected channel count reading source level");
+
+                fmt::println("Level {} -> {}x{} (source level {}x{})",
+                    level_idx, canvas_w, canvas_h, src_level.width, src_level.height);
+
+                size_t count = 0;
+                for (const auto& r : rects) {
+                    if (r.src_w == 0 || r.src_h == 0) continue;
+
+                    fmt::println("Rec {}: from {}x{} to {}x{} - size {}x{}", count++, r.src_x, r.src_y, r.dest_x, r.dest_y, r.src_w, r.src_h);
+
+                    // data is stored in [Channel][Height][Width] (C, H, W) order
+                    // const size_t out_idx = static_cast<size_t>(c) * w * h + static_cast<size_t>(y + sy) * w + sx;
+                    for (uint32_t c = 0; c < series.channels; ++c) {
+                        const float* src_plane = src_level.data.data() +
+                            static_cast<size_t>(c) * src_level.width * src_level.height;
+                        float* dst_plane = lc.channel_planes[c].data();
+                        for (uint32_t y = 0; y < r.src_h; ++y) {
+                            const float* src_row = src_plane +
+                                static_cast<size_t>(r.src_y + y) * src_level.width + r.src_x;
+                            float* dst_row = dst_plane +
+                                static_cast<size_t>(r.dest_y + y) * canvas_w + r.dest_x;
+                            std::copy(src_row, src_row + r.src_w, dst_row);
+                        }
                     }
-                    encode_float_row(tile_f.data(), tile_buf.data(), size_t(tw) * tw, bps, fmt);
-                    TIFFWriteTile(out, tile_buf.data(), tx, ty, 0, 0);
                 }
             }
+
+            return canvases;
         }
-        else {
-            std::vector<uint8_t> row_buf(size_t(w) * bytes_per_sample);
-            for (uint32_t y = 0; y < h; ++y) {
-                encode_float_row(plane + (size_t(y) * w), row_buf.data(), w, bps, fmt);
-                TIFFWriteScanline(out, row_buf.data(), y);
+
+        void write_series_to_pyramid_tiff(
+            const std::filesystem::path& out_path,
+            const TiffSeries& series,
+            const std::vector<LevelCanvas>& canvases,
+            uint32_t tile_size)
+        {
+            if (series.channels == 0)
+                throw std::runtime_error("RoiArrangement: series has no channels");
+            if (canvases.empty())
+                throw std::runtime_error("RoiArrangement: no pyramid levels to write");
+            if (canvases.size() != series.pyramid.size())
+                throw std::runtime_error("RoiArrangement: canvas count does not match pyramid level count");
+            for (const auto& lc : canvases) {
+                if (lc.channel_planes.size() != series.channels)
+                    throw std::runtime_error("RoiArrangement: canvas channel count does not match series channel count");
             }
+
+            if (canvases.empty())
+                throw std::runtime_error("RoiArrangement: canvases are empty");
+
+            TIFFSetErrorHandler([](const char* module, const char* fmt, va_list ap) {
+                fmt::print(stderr, "libtiff error [{}]: ", module ? module : "?");
+                vfprintf(stderr, fmt, ap);
+                fmt::print(stderr, "\n");
+                });
+
+            // "w8" so BigTIFF is used automatically once the file grows past 4GB -
+            // large multi-channel pyramids can exceed that even after compaction.
+            TIFF* out = TIFFOpen(out_path.string().c_str(), "w8");
+            if (!out)
+                throw std::runtime_error(fmt::format("RoiArrangement: failed to open {} for writing", out_path.string()));
+
+            // Only attached to IFD 0 (first channel, level 0) - this mirrors what a
+            // real OME writer does and is exactly what OmeTiffPyramid::scan_series
+            // reads back via parse_ome_channel_names(m.desc) for the new series.
+            const std::string ome_xml = build_minimal_ome_xml(
+                series.channel_names, series.channels, canvases[0].width, canvases[0].height);
+
+            const uint16_t num_sub_levels = static_cast<uint16_t>(canvases.size() - 1);
+
+            try {
+                for (uint32_t c = 0; c < series.channels; ++c) {
+                    if (TIFFCreateDirectory(out) != 0)
+                        throw std::runtime_error("RoiArrangement: TIFFCreateDirectory failed");
+
+                    // --- Level 0 (full resolution): one top-level IFD per channel ---
+                    const LevelCanvas& lvl0 = canvases[0];
+                    const ImageLevelInfo& lvl0_info = series.pyramid[0];
+
+                    TIFFSetField(out, TIFFTAG_SUBFILETYPE, 0);
+
+                    std::vector<uint64_t> subifd_placeholder; // must outlive this TIFFSetField call, no longer
+                    if (num_sub_levels > 0) {
+                        // Reserve `num_sub_levels` SubIFD slots on this channel's main
+                        // IFD; libtiff fills in the offsets as we write each one below.
+                        subifd_placeholder.assign(num_sub_levels, 0);
+                        TIFFSetField(out, TIFFTAG_SUBIFD, num_sub_levels, subifd_placeholder.data());
+                    }
+
+                    write_channel_plane(
+                        out, lvl0.channel_planes[c].data(),
+                        lvl0.width, lvl0.height,
+                        lvl0_info.bits_per_sample, lvl0_info.sample_format,
+                        tile_size,
+                        c == 0 ? &ome_xml : nullptr);
+
+                    // --- Sub-resolution levels, nested as this channel's SubIFD chain ---
+                    for (size_t level_idx = 1; level_idx < canvases.size(); ++level_idx) {
+                        const LevelCanvas& lc = canvases[level_idx];
+                        const ImageLevelInfo& info = series.pyramid[level_idx];
+
+                        if (TIFFCreateDirectory(out) != 0)
+                            throw std::runtime_error("RoiArrangement: TIFFCreateDirectory failed");
+
+                        TIFFSetField(out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
+
+                        write_channel_plane(
+                            out, lc.channel_planes[c].data(),
+                            lc.width, lc.height,
+                            info.bits_per_sample, info.sample_format,
+                            tile_size,
+                            nullptr);
+                    }
+                    // After the last SubIFD is written, libtiff automatically returns
+                    // to the top-level directory chain, so the next channel's main
+                    // IFD (or EOF) follows naturally.
+                }
+            }
+            catch (...) {
+                TIFFClose(out);
+                throw;
+            }
+
+            TIFFClose(out);
         }
-    }
 
-    struct LevelCanvas {
-        uint32_t width{}, height{};
-        std::vector<std::vector<float>> channel_planes; // [channel][h*w]
-    };
-
+    } // namespace
+    
     void repack_rois_to_pyramid(
         const std::filesystem::path& tiff_pyramid_path,
         const std::filesystem::path& masks_json_path,
@@ -639,11 +763,9 @@ namespace PyramidTiffData {
         }
 
         fmt::println("Loading ROIs from {}", masks_json_path);
-
         const std::vector<Roi> rois = load_rois_from_json(masks_json_path);
 
         fmt::println("Computing new ROIs...");
-
         const RoiLayout layout = compute_roi_layout(rois);
 
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
@@ -651,92 +773,15 @@ namespace PyramidTiffData {
             layout.cell_width, layout.cell_height);
 
         fmt::println("Save new json to {}", out_coords_json_path);
-
         save_shifted_coordinates_json(layout, series, out_coords_json_path);
 
-        // --- Pass 1: build the compacted canvas for every (level, channel). ---
-        // Compacted canvases are, by construction, much smaller than the source
-        // levels, so holding every level's canvas in memory at once is cheap -
-        // and it's required, because the TIFF SubIFD chain for one channel must
-        // be written as a contiguous run of directories (level 0 then its
-        // SubIFDs), so all of a channel's levels must be ready before writing
-        // starts for that channel.
+        fmt::println("Shifting ROIs from {}", tiff_pyramid_path);
+        const std::vector<LevelCanvas> canvases = shift_roi_to_new_canvas(tiff_pyramid, series, series_idx, layout);
 
-        fmt::println("Reading tiff levels from {}", tiff_pyramid_path);
+        fmt::println("Writing new pyramid tiff to {}", out_tiff_path);
+        write_series_to_pyramid_tiff(out_tiff_path, series, canvases, tile_size);
 
-        std::vector<LevelCanvas> canvases(series.pyramid.size());
-
-        for (size_t level_idx = 0; level_idx < series.pyramid.size(); ++level_idx) {
-        	const auto rects = scale_placements_to_level(layout, series, level_idx);
-            const uint32_t cell_w = rects.front().cell_w;
-            const uint32_t cell_h = rects.front().cell_h;
-            const uint32_t pad_x = rects.front().pad_x;
-            const uint32_t pad_y = rects.front().pad_y;
-            const uint32_t canvas_w = layout.grid_cols * cell_w + (layout.grid_cols > 0 ? (layout.grid_cols - 1) * pad_x : 0);
-            const uint32_t canvas_h = layout.grid_rows * cell_h + (layout.grid_rows > 0 ? (layout.grid_rows - 1) * pad_y : 0);
-
-            LevelCanvas& lc = canvases[level_idx];
-            lc.width = canvas_w;
-            lc.height = canvas_h;
-            lc.channel_planes.assign(
-                series.channels, std::vector<float>(static_cast<size_t>(canvas_w) * canvas_h, 0.0f));
-
-            const PyramidTiffData::Image src_level = tiff_pyramid.read_level(series_idx, level_idx);
-            if (src_level.channels != series.channels)
-                throw std::runtime_error("RoiArrangement: unexpected channel count reading source level");
-
-            fmt::println("Level {} -> {}x{} (source level {}x{})",
-                level_idx, canvas_w, canvas_h, src_level.width, src_level.height);
-
-            size_t count = 0;
-            for (const auto& r : rects) {
-                if (r.src_w == 0 || r.src_h == 0) continue;
-
-                fmt::println("Rec {}: from {}x{} to {}x{} - size {}x{}", count++, r.src_x, r.src_y, r.dest_x, r.dest_y, r.src_w, r.src_h);
-                
-            	// data is stored in [Channel][Height][Width] (C, H, W) order
-                // const size_t out_idx = static_cast<size_t>(c) * w * h + static_cast<size_t>(y + sy) * w + sx;
-                for (uint32_t c = 0; c < series.channels; ++c) {
-                    const float* src_plane = src_level.data.data() +
-                        static_cast<size_t>(c) * src_level.width * src_level.height;
-                    float* dst_plane = lc.channel_planes[c].data();
-                    for (uint32_t y = 0; y < r.src_h; ++y) {
-                        const float* src_row = src_plane +
-                            static_cast<size_t>(r.src_y + y) * src_level.width + r.src_x;
-                        float* dst_row = dst_plane +
-                            static_cast<size_t>(r.dest_y + y) * canvas_w + r.dest_x;
-                        std::copy(src_row, src_row + r.src_w, dst_row);
-                    }
-                }
-            }
-        }
-
-        // --- Pass 2: write the output pyramid TIFF. ---
-        try {
-
-            // write images
-            constexpr size_t current_series = 0;
-            const auto num_levels = tiff_pyramid.num_levels(current_series);
-
-            for (size_t level_idx = 0; level_idx < num_levels; level_idx++)
-            {
-                const auto& channel_names = tiff_pyramid.read_level(current_series, level_idx).channel_names;
-                const auto& level_canvas = canvases[level_idx];
-
-                const auto level_folder = out_tiff_path.parent_path() / fmt::format("{}_level_{}", out_tiff_path.stem(), level_idx);
-                if (!std::filesystem::exists(level_folder))
-                    std::filesystem::create_directory(level_folder);
-
-                PyramidTiffData::write_to_disk_as_single_page_tiffs(level_canvas, channel_names, level_folder);
-            }
-
-        } catch (const std::runtime_error& e) {
-            throw std::runtime_error(fmt::format("RoiArrangement: error {}", e.what()));
-        } catch (...) {
-            throw std::runtime_error(fmt::format("RoiArrangement: error while writing to {}", out_tiff_path.string()));
-        }
-
-        fmt::print("RoiArrangement: wrote {}\n", out_tiff_path.string());
+        fmt::println("Finished.");
     }
 
 } // namespace RoiArrangement
