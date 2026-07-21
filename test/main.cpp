@@ -1,7 +1,7 @@
 #include "OmeTiffPyramid.h"
 #include "PolygonData.h"
+#include "UtilsJson.h"
 #include "UtilsTransform.h"
-
 #include "UtilsRoiArrangement.h"
 
 #include <fstream>
@@ -18,31 +18,6 @@
 #include <jsoncons/basic_json.hpp>
 #include <jsoncons/json_cursor.hpp>
 #include <jsoncons/json_encoder.hpp>
-
-namespace jsoncons {
-    template<class Json>
-    struct json_type_traits<Json, PyramidTiffData::Point2D> {
-        static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2 &&
-                j[0].is_number() && j[1].is_number();
-        }
-
-        static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5)
-            return {
-                .x = j[0].as_double(),
-                .y = j[1].as_double()
-            };
-        }
-
-        static Json to_json(const PyramidTiffData::Point2D& p) {
-            Json j(json_array_arg);
-            j.push_back(p.x);
-            j.push_back(p.y);
-            return j;
-        }
-    };
-}
 
 using namespace jsoncons;
 
