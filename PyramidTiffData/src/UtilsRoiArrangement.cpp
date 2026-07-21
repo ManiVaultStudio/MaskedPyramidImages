@@ -391,20 +391,14 @@ namespace PyramidTiffData {
 		        ojson geometry(jsoncons::json_object_arg);
             	geometry["type"] = "Polygon";
 
-            	const double sx = series.scaleFactorWidth(0);
-            	const double sy = series.scaleFactorHeight(0);
-            	const uint32_t cell_w_L = std::max<uint32_t>(
-					1, static_cast<uint32_t>(std::llround(layout.cell_width * sx)));
-            	const uint32_t cell_h_L = std::max<uint32_t>(
-					1, static_cast<uint32_t>(std::llround(layout.cell_height * sy)));
-            	const double dest_x_L = static_cast<double>(p.grid_col) * cell_w_L;
-            	const double dest_y_L = static_cast<double>(p.grid_row) * cell_h_L;
+            	const double dest_x_L = static_cast<double>(p.grid_col) * (layout.cell_width + layout.padding);
+            	const double dest_y_L = static_cast<double>(p.grid_row) * (layout.cell_height + layout.padding);
         	
             	std::vector<PyramidTiffData::Point2D> coords;
             	coords.reserve(p.roi.ring.size());
             	for (const auto& pt : p.roi.ring) {
-            		const double nx = (pt.x - p.roi.x_min) * sx + dest_x_L;
-            		const double ny = (pt.y - p.roi.y_min) * sy + dest_y_L;
+            		const double nx = pt.x - p.roi.x_min + dest_x_L;
+            		const double ny = pt.y - p.roi.y_min + dest_y_L;
             		coords.emplace_back(nx, ny);
             	}
 
@@ -744,7 +738,7 @@ namespace PyramidTiffData {
         }
 
     } // namespace
-    
+
     void repack_rois_to_pyramid(
         const std::filesystem::path& tiff_pyramid_path,
         const std::filesystem::path& masks_json_path,
