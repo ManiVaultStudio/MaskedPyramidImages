@@ -264,10 +264,10 @@ namespace utils
 
         // write images
         constexpr size_t current_series = 0;
-        const auto current_channel = tiffReader.num_levels(current_series) - 1;
-        const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_channel);
+        const auto current_level = tiffReader.num_levels(current_series) - 1;
+        const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_level);
 
-        PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_channel));
+        PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_level));
     }
 
 }
