@@ -3,9 +3,11 @@
 #include "OmeTiffPyramid.h"
 #include "UtilsTransform.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 // =============================================================================
@@ -42,7 +44,8 @@ namespace PyramidTiffData {
     struct Roi {
         std::string id{};
         std::string name{};
-        std::vector<Point2D> ring{};                // polygon ring(s), verbatim, full-res coordinates
+        std::vector<Point2D> ring{};
+        std::vector<std::array<uint8_t, 3>> colors{};
         double x_min{}, y_min{}, x_max{}, y_max{};
 
         [[nodiscard]] double width()  const { return x_max - x_min; }
@@ -103,7 +106,12 @@ namespace PyramidTiffData {
     // "coordinates" follows GeoJSON Polygon convention: a list of rings, each
     // ring a list of [x, y] points (first == last point to close the ring).
     // Throws std::runtime_error on a file that doesn't contain anything usable.
-    [[nodiscard]] std::vector<Roi> load_rois_from_json(const std::filesystem::path& masks_json_path);
+    [[nodiscard]] std::tuple<
+        std::vector<Roi>, // ROI
+		std::vector<Roi>, // TISSUE
+		std::vector<Roi>, // CELL
+		std::vector<Roi>> // NUCLEUS
+	load_rois_from_json(const std::filesystem::path& masks_json_path);
 
     // ---------------------------------------------------------------------
     // Layout

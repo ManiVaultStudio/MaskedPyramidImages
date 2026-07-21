@@ -27,14 +27,77 @@ namespace PyramidTiffData {
 
     using namespace jsoncons;
 
-    std::vector<Roi> load_rois_from_json(const std::filesystem::path& json_path) {
+    std::tuple<
+        std::vector<Roi>, // ROI
+        std::vector<Roi>, // TISSUE
+        std::vector<Roi>, // CELL
+        std::vector<Roi>> // NUCLEUS
+	load_rois_from_json(const std::filesystem::path& json_path) {
         std::ifstream input_file(json_path);
 
         json_stream_cursor cursor(input_file);
-        json_decoder<ojson> decoder;
+        json_decoder<json> decoder;
 
-        std::vector<PyramidTiffData::Roi> recs;
+        std::vector<PyramidTiffData::Roi> rois;
+        std::vector<PyramidTiffData::Roi> tissues;
+        std::vector<PyramidTiffData::Roi> cells;
+        std::vector<PyramidTiffData::Roi> nuclei;
+
+        int unnamed_roi_counter = 0;
+        int unnamed_tissue_counter = 0;
+        int unnamed_cell_counter = 0;
         bool in_features_array = false;
+
+        auto assign_min_max = [](PyramidTiffData::Roi& mask)
+            {
+                double min_x = std::numeric_limits<double>::max();
+                double min_y = std::numeric_limits<double>::max();
+                double max_x = std::numeric_limits<double>::lowest();
+                double max_y = std::numeric_limits<double>::lowest();
+
+                for (const auto& coord : mask.ring)
+                {
+                    min_x = std::min(min_x, coord.x);
+                    min_y = std::min(min_y, coord.y);
+                    max_x = std::max(max_x, coord.x);
+                    max_y = std::max(max_y, coord.y);
+                }
+
+                mask.x_min = min_x; mask.x_max = max_x;
+                mask.y_min = min_y; mask.y_max = max_y;
+            };
+
+
+        auto parseMask = [&, assign_min_max](const json& feature, MaskType maskType) -> void
+            {
+                PyramidTiffData::Roi mask;
+
+                if (maskType == MaskType::Roi) {
+                    parseName(feature, mask.name, "ROI", unnamed_roi_counter);
+                    parseGeometry(feature, mask.ring);
+                    assign_min_max(mask);
+                    parseColor(feature, mask.colors);
+                    rois.push_back(std::move(mask));
+                }
+                else if (maskType == MaskType::Tissue) {
+                    parseNameID(feature, mask.id, "TISSUE", unnamed_tissue_counter);
+                    parseGeometry(feature, mask.ring);
+                    assign_min_max(mask);
+                    parseColor(feature, mask.colors);
+                    tissues.push_back(std::move(mask));
+                }
+                else if (maskType == MaskType::Cell) {
+                    parseNameID(feature, mask.id, "CELL", unnamed_cell_counter);
+                    parseGeometry(feature, mask.ring);
+                    assign_min_max(mask);
+                    cells.push_back(std::move(mask));
+
+                    PyramidTiffData::Roi maskNucleus;
+                    parseGeometryNucleus(feature, maskNucleus.ring);
+                    assign_min_max(maskNucleus);
+                    nuclei.push_back(std::move(maskNucleus));
+                }
+            };
 
         // Stream through the input
         while (!cursor.done())
@@ -57,51 +120,10 @@ namespace PyramidTiffData {
                 if (in_features_array)
                 {
                     cursor.read_to(decoder);
-                    ojson feature = decoder.get_result();
+                    const json feature = decoder.get_result();
 
-                    if (!feature.contains("properties")) break;
-
-                    const auto& props = feature["properties"];
-                    if (!props.contains("classification")) break;
-
-                    const auto& classification = props["classification"];
-                    if (!classification.contains("name")) break;
-
-                    PyramidTiffData::Roi roi;
-
-                    if (classification["name"].as<std::string>() == "ROI" &&
-                        feature.contains("geometry") && feature["geometry"].contains("coordinates"))
-                    {
-                        double min_x = std::numeric_limits<double>::max();
-                        double min_y = std::numeric_limits<double>::max();
-                        double max_x = std::numeric_limits<double>::lowest();
-                        double max_y = std::numeric_limits<double>::lowest();
-
-                        auto test = feature["geometry"]["coordinates"][0];
-
-                        for (const auto& coord : feature["geometry"]["coordinates"][0].as<std::vector<PyramidTiffData::Point2D>>())
-                        {
-                            min_x = std::min(min_x, coord.x);
-                            min_y = std::min(min_y, coord.y);
-                            max_x = std::max(max_x, coord.x);
-                            max_y = std::max(max_y, coord.y);
-                            roi.ring.emplace_back(coord.x, coord.y);
-                        }
-
-                        roi.x_min = min_x; roi.x_max = max_x;
-                        roi.y_min = min_y; roi.y_max = max_y;
-                    }
-
-                    if (feature.contains("id")) {
-                        roi.id = feature["id"].as<std::string>();
-                    }
-
-                    if (props.contains("name")) {
-                        roi.name = props["name"].as<std::string>();
-                    }
-
-                    recs.push_back(std::move(roi));
-
+                    const auto maskType = getMaskType(feature);
+                    parseMask(feature, maskType);
                 }
                 break;
             }
@@ -123,7 +145,7 @@ namespace PyramidTiffData {
 
         input_file.close();
 
-        return recs;
+        return { rois, tissues, cells, nuclei };
     }
 
     // =============================================================================
@@ -622,7 +644,7 @@ namespace PyramidTiffData {
         }
 
         fmt::println("Loading ROIs from {}", masks_json_path);
-        const std::vector<Roi> rois = load_rois_from_json(masks_json_path);
+        const auto [rois, tissues, cells, nuclei] = load_rois_from_json(masks_json_path);
 
         fmt::println("Computing new ROIs...");
         const RoiLayout layout = compute_roi_layout(rois);
@@ -630,8 +652,6 @@ namespace PyramidTiffData {
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,
             layout.cell_width, layout.cell_height);
-
-        fmt::println("{}", layout);
 
         fmt::println("Save new json to {}", out_coords_json_path);
         save_shifted_coordinates_json(layout, series, out_coords_json_path);
