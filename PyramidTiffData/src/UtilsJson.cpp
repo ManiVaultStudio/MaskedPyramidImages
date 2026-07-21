@@ -36,84 +36,78 @@ namespace PyramidTiffData {
 
     void parseName(
         const jsoncons::json& feat,
-        std::vector<std::string>& names,
+        std::string& name,
         const std::string& prefix,
         int& counter)
     {
         if (feat.at("properties").contains("name")) {
-            names.push_back(
-                feat.at("properties").at("name").as<std::string>()
-            );
+            name = feat.at("properties").at("name").as<std::string>();
         }
         else {
-            names.push_back(fmt::format("{} {}", prefix, counter++));
+            name = fmt::format("{} {}", prefix, counter++);
         }
     }
 
     void parseNameID(
         const jsoncons::json& feat,
-        std::vector<std::string>& names,
+        std::string& name,
         const std::string& prefix,
         int& counter)
     {
         if (feat.contains("id")) {
-            names.push_back(
-                feat.at("id").as<std::string>()
-            );
+            name = feat.at("id").as<std::string>();
         }
         else {
-            names.push_back(fmt::format("{} {}", prefix, counter++));
+            name = fmt::format("{} {}", prefix, counter++);
         }
     }
 
     void parseGeometry(
         const jsoncons::json& feat,
-        std::vector<std::vector<Point2D>>& polygons,
+        std::vector<Point2D>& poly_points,
         const std::string& geometryKey)
     {
-        std::vector<Point2D>& poly_points = polygons.emplace_back();
 
-        if (feat.contains(geometryKey) &&
-            feat.at(geometryKey).contains("coordinates"))
+        if (!(feat.contains(geometryKey) &&
+            feat.at(geometryKey).contains("coordinates")))
+            return;
+
+        const auto& base_coords =
+            feat.at(geometryKey).at("coordinates");
+
+        if (base_coords.empty())
+            return;
+
+        const auto& first_elem = base_coords.at(0);
+
+        if (first_elem.empty())
+            return;
+
+        // Default to standard Polygon level
+        const jsoncons::json* coordinates = &first_elem;
+
+        // Check an extra level of nesting.
+        // If first_elem[0][0] is an array,
+        // we are nested one level too deep.
+        if (first_elem[0].is_array() &&
+            !first_elem[0].empty() &&
+            first_elem[0][0].is_array())
         {
-            const auto& base_coords =
-                feat.at(geometryKey).at("coordinates");
-
-            if (base_coords.empty())
-                return;
-
-            const auto& first_elem = base_coords.at(0);
-
-            if (first_elem.empty())
-                return;
-
-            // Default to standard Polygon level
-            const jsoncons::json* coordinates = &first_elem;
-
-            // Check an extra level of nesting.
-            // If first_elem[0][0] is an array,
-            // we are nested one level too deep.
-            if (first_elem[0].is_array() &&
-                !first_elem[0].empty() &&
-                first_elem[0][0].is_array())
-            {
-                coordinates = &first_elem.at(0);
-            }
-
-            poly_points.reserve(coordinates->size());
-
-            for (const auto& coords : coordinates->array_range()) {
-                poly_points.push_back(coords.as<Point2D>());
-            }
+            coordinates = &first_elem.at(0);
         }
+
+        poly_points.reserve(coordinates->size());
+
+        for (const auto& coords : coordinates->array_range()) {
+            poly_points.push_back(coords.as<Point2D>());
+        }
+        
     }
 
     void parseColor(
         const jsoncons::json& feat,
-        std::vector<std::array<uint8_t, 3>>& colors)
+        std::array<uint8_t, 3>& color)
     {
-        std::array<uint8_t, 3>& color = colors.emplace_back();
-
         if (feat.at("properties").contains("classification") &&
             feat.at("properties").at("classification").contains("color"))
         {

@@ -7,10 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <jsoncons/basic_json.hpp>
-#include <jsoncons/encode_json.hpp>
-#include <jsoncons/json_cursor.hpp>
-#include <jsoncons/json_type.hpp>
+#include <jsoncons/json.hpp>
 
 namespace jsoncons {
     template<class Json>
@@ -47,25 +44,62 @@ namespace jsoncons {
         }
     };
 }
+
 namespace PyramidTiffData {
     MaskType getMaskType(const jsoncons::json& feat);
 
     void parseName(
         const jsoncons::json& feat,
-        std::vector<std::string>& names,
+        std::string& name,
         const std::string& prefix,
         int& counter);
+
+    inline void parseName(
+        const jsoncons::json& feat,
+        std::vector<std::string>& names,
+        const std::string& prefix,
+        int& counter)
+    {
+        std::string& name = names.emplace_back();
+        parseName(feat, name, prefix, counter);
+    }
 
     void parseNameID(
         const jsoncons::json& feat,
-        std::vector<std::string>& names,
+        std::string& names,
         const std::string& prefix,
         int& counter);
 
+    inline void parseNameID(
+        const jsoncons::json& feat,
+        std::vector<std::string>& names,
+        const std::string& prefix,
+        int& counter)
+    {
+        std::string& name = names.emplace_back();
+        parseNameID(feat, name, prefix, counter);
+    }
+
     void parseGeometry(
         const jsoncons::json& feat,
-        std::vector<std::vector<Point2D>>& polygons,
+        std::vector<Point2D>& poly_points,
         const std::string& geometryKey = "geometry");
+
+    inline void parseGeometry(
+        const jsoncons::json& feat,
+        std::vector<std::vector<Point2D>>& polygons,
+        const std::string& geometryKey = "geometry")
+    {
+        std::vector<Point2D>& poly_points = polygons.emplace_back();
+        parseGeometry(feat, poly_points, geometryKey);
+    }
+
+    inline void parseGeometryNucleus(
+        const jsoncons::json& feat,
+        std::vector<Point2D>& poly_points)
+    {
+        parseGeometry(feat, poly_points, "nucleusGeometry");
+    }
 
     inline void parseGeometryNucleus(
         const jsoncons::json& feat,
@@ -76,5 +110,14 @@ namespace PyramidTiffData {
 
     void parseColor(
         const jsoncons::json& feat,
-        std::vector<std::array<uint8_t, 3>>& colors);
+        std::array<uint8_t, 3>& color);
+
+    inline void parseColor(
+        const jsoncons::json& feat,
+        std::vector<std::array<uint8_t, 3>>& colors)
+    {
+        std::array<uint8_t, 3>& color = colors.emplace_back();
+        parseColor(feat, color);
+    }
+
 }
