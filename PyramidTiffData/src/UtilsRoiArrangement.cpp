@@ -109,7 +109,7 @@ namespace PyramidTiffData {
                     current_roi_name = mask.name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
-                    parseColor(feature, mask.colors);
+                    parseColor(feature, mask.color);
                     rois.push_back(std::move(mask));
                 }
                 else if (maskType == MaskType::Tissue) {
@@ -117,7 +117,7 @@ namespace PyramidTiffData {
                     mask.name = current_roi_name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
-                    parseColor(feature, mask.colors);
+                    parseColor(feature, mask.color);
                     tissues.push_back(std::move(mask));
                 }
                 else if (maskType == MaskType::Cell) {
@@ -344,9 +344,9 @@ namespace PyramidTiffData {
                 classification["name"] = "ROI";
 
                 ojson color(json_array_arg);
-                color.push_back(0);
-                color.push_back(0);
-                color.push_back(255);
+                color.push_back(placement.roi.color[0]);
+                color.push_back(placement.roi.color[1]);
+                color.push_back(placement.roi.color[2]);
                 classification["color"] = std::move(color);
 
                 properties["classification"] = std::move(classification);

@@ -45,7 +45,7 @@ namespace PyramidTiffData {
         std::string id{};
         std::string name{};
         std::vector<Point2D> ring{};
-        std::vector<std::array<uint8_t, 3>> colors{};
+        std::array<uint8_t, 3> color = {0, 0, 255};
         double x_min{}, y_min{}, x_max{}, y_max{};
 
         [[nodiscard]] double width()  const { return x_max - x_min; }
