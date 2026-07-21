@@ -168,6 +168,8 @@ namespace PyramidTiffData {
             return;
         }
 
+        f.close();
+
         if (!found_features) {
             fmt::println("PolygonData::parse_mask_annotations: json does not contain features field");
             return;

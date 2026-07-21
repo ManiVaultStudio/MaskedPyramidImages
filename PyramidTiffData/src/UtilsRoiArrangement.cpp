@@ -22,6 +22,36 @@
 namespace PyramidTiffData {
 
     // =============================================================================
+	// Helper
+	// =============================================================================
+
+    namespace {
+        constexpr uintmax_t ProgressBarWidth = 40;
+
+        inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
+        {
+            const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
+            if (pct != previous_pct) {
+                previous_pct = pct;
+                const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
+                fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
+                [[maybe_unused]] int success = std::fflush(stdout);
+            }
+
+        }
+
+        inline void ProgressBarFinish()
+        {
+            fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
+        }
+
+        inline std::uintmax_t ProgressBarInit()
+        {
+            return 0;
+        }
+    }
+
+    // =============================================================================
     // Mask JSON loading
     // =============================================================================
 
@@ -34,6 +64,7 @@ namespace PyramidTiffData {
         std::vector<Roi>> // NUCLEUS
 	load_rois_from_json(const std::filesystem::path& json_path) {
         std::ifstream input_file(json_path);
+        const uintmax_t total_bytes = std::filesystem::file_size(json_path);
 
         json_stream_cursor cursor(input_file);
         json_decoder<json> decoder;
@@ -100,10 +131,10 @@ namespace PyramidTiffData {
             };
 
         // Stream through the input
-        while (!cursor.done())
+        auto last_pct = ProgressBarInit();
+        for (; !cursor.done(); cursor.next())
         {
             const auto& event = cursor.current();
-
             switch (event.event_type())
             {
             case staj_event_type::key:
@@ -140,8 +171,10 @@ namespace PyramidTiffData {
                 break;
             }
 
-            cursor.next();
+            const auto pos = input_file.tellg();
+            if (pos > 0) ProgressBarPrint(static_cast<std::uintmax_t>(pos), last_pct, total_bytes);
         }
+        ProgressBarFinish();
 
         input_file.close();
 
