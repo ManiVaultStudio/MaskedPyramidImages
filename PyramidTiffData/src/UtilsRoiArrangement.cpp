@@ -378,6 +378,7 @@ namespace PyramidTiffData {
             feat.dump(encoder);
 	    };
 
+        auto last_pct = ProgressBarInit();
         for (std::size_t roi_counter = 0; roi_counter < layout.placements.size(); ++roi_counter) {
             const auto& p = layout.placements[roi_counter];
             parse_feature("ROI", p.roi.id, p, p.roi.ring);
@@ -402,7 +403,9 @@ namespace PyramidTiffData {
 
             }
 
+            ProgressBarPrint(roi_counter, last_pct, layout.placements.size());
         }
+        ProgressBarFinish();
 
         encoder.end_array();
         encoder.end_object();
