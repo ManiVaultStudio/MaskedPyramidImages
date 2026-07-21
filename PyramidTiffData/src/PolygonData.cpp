@@ -360,23 +360,23 @@ namespace PyramidTiffData {
     {
         fmt::print("PolygonData Information");
     	fmt::print("Image Dimensions: {}x{}\n", _img_width, _img_height);
-        fmt::print("Total Polygons Detected: {}\n", _names_tissue.size());
+        fmt::print("Total Polygons Detected: {}\n", _names_roi.size());
 
         // Print details for a limited number of polygons
-        const size_t polygons_to_show = std::min(_names_tissue.size(), max_polygons_to_show);
+        const size_t polygons_to_show = std::min(_names_roi.size(), max_polygons_to_show);
 
         fmt::print("\n--- Polygon Details ({}/{} shown) ---\n",
-            polygons_to_show, _names_tissue.size());
+            polygons_to_show, _names_roi.size());
 
         for (size_t i = 0; i < polygons_to_show; ++i) {
             fmt::print("  - Polygon {}: Name='{}', Color=({}, {}, {})\n",
                 i + 1,
-                _names_tissue[i],
+                _names_roi[i],
                 _colors_roi[i][0], _colors_roi[i][1], _colors_roi[i][2]);
         }
 
-        if (_names_tissue.size() > max_polygons_to_show) {
-            fmt::print("  ... {} more polygons not shown.\n", _names_tissue.size() - max_polygons_to_show);
+        if (_names_roi.size() > max_polygons_to_show) {
+            fmt::print("  ... {} more polygons not shown.\n", _names_roi.size() - max_polygons_to_show);
         }
 
         fmt::print("{:-<60}\n", "");
