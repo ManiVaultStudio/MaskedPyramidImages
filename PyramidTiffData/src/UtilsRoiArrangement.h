@@ -62,12 +62,12 @@ namespace PyramidTiffData {
 
     // Full layout: uniform cell size + grid shape + every ROI's placement.
     struct RoiLayout {
-        uint32_t cell_width{};   // full-res width of one grid cell (max ROI width, rounded)
-        uint32_t cell_height{};  // full-res height of one grid cell (max ROI height, rounded)
+        uint32_t cell_width{};                  // full-res width of one grid cell (max ROI width, rounded)
+        uint32_t cell_height{};                 // full-res height of one grid cell (max ROI height, rounded)
         uint32_t grid_cols{};
         uint32_t grid_rows{};
-        uint32_t padding{};      // full-res gap, in pixels, between adjacent cells
-        std::vector<RoiPlacement> placements{};  // in raster_index order
+        uint32_t padding{};                     // full-res gap, in pixels, between adjacent cells
+        std::vector<RoiPlacement> placements{}; // in raster_index order
 
         [[nodiscard]] uint32_t canvas_width()  const {
             return grid_cols * cell_width + (grid_cols > 0 ? (grid_cols - 1) * padding : 0);

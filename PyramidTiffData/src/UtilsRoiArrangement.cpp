@@ -1,5 +1,6 @@
 #include "UtilsRoiArrangement.h"
 
+#include "UtilsJson.h"
 #include "UtilsTransform.h"
 
 #include <algorithm>
@@ -17,42 +18,6 @@
 #include <jsoncons/json_cursor.hpp>
 #include <jsoncons/json_type.hpp>
 #include <tiffio.h> 
-
-namespace jsoncons {
-    template<class Json>
-    struct json_type_traits<Json, PyramidTiffData::Point2D> {
-        using allocator_type = typename Json::allocator_type;
-
-        static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2 &&
-                j[0].is_number() && j[1].is_number();
-        }
-
-        static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5)
-            return {
-                .x = j[0].as_double(),
-                .y = j[1].as_double()
-            };
-        }
-
-        // Converts Point2D to JSON
-        static Json to_json(const PyramidTiffData::Point2D& val) {
-            Json j(json_array_arg);
-            j.push_back(val.x);
-            j.push_back(val.y);
-            return j;
-        }
-
-        // Converts Point2D to JSON using a specific allocator
-        static Json to_json(const PyramidTiffData::Point2D& val, const allocator_type& alloc) {
-            Json j(json_array_arg, alloc);
-            j.push_back(val.x);
-            j.push_back(val.y);
-            return j;
-        }
-    };
-}
 
 namespace PyramidTiffData {
 
@@ -665,6 +630,8 @@ namespace PyramidTiffData {
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,
             layout.cell_width, layout.cell_height);
+
+        fmt::println("{}", layout);
 
         fmt::println("Save new json to {}", out_coords_json_path);
         save_shifted_coordinates_json(layout, series, out_coords_json_path);

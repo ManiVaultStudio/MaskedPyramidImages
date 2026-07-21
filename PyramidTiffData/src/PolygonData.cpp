@@ -1,5 +1,7 @@
 #include "PolygonData.h"
 
+#include "UtilsJson.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -20,59 +22,36 @@
 #include <jsoncons/json.hpp>
 #include <jsoncons/json_cursor.hpp>
 
-namespace jsoncons {
-    template<class Json>
-    struct json_type_traits<Json, PyramidTiffData::Point2D> {
-        static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2 &&
-                j[0].is_number() && j[1].is_number();
-        }
-
-        static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5)
-            return {
-                .x = j[0].as_double(),
-                .y = j[1].as_double()
-            };
-        }
-
-        static Json to_json(const PyramidTiffData::Point2D& p) {
-            Json j(json_array_arg);
-            j.push_back(p.x);
-            j.push_back(p.y);
-            return j;
-        }
-    };
-}
-
 namespace PyramidTiffData {
 
     // =============================================================================
     // Helper
     // =============================================================================
 
-    constexpr uintmax_t ProgressBarWidth = 40;
+    namespace {
+        constexpr uintmax_t ProgressBarWidth = 40;
 
-    inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
-    {
-        const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
-        if (pct != previous_pct) {
-            previous_pct = pct;
-            const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
-            fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
-            [[maybe_unused]] int success = std::fflush(stdout);
+        inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
+        {
+            const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
+            if (pct != previous_pct) {
+                previous_pct = pct;
+                const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
+                fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
+                [[maybe_unused]] int success = std::fflush(stdout);
+            }
+
         }
 
-    }
+        inline void ProgressBarFinish()
+        {
+            fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
+        }
 
-    inline void ProgressBarFinish()
-    {
-        fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
-    }
-
-    inline std::uintmax_t ProgressBarInit()
-    {
-        return 0;
+        inline std::uintmax_t ProgressBarInit()
+        {
+            return 0;
+        }
     }
 
     // =============================================================================
@@ -101,95 +80,6 @@ namespace PyramidTiffData {
         }
 
         bool found_features = false;
-
-        auto getMaskType = [](const jsoncons::json& feat) -> MaskType
-        {
-            if (!feat.contains("properties")) return MaskType::None;
-
-            const auto& props = feat.at("properties");
-
-            if (!props.contains("objectType")) return MaskType::None;
-
-            if (props.at("objectType").as<std::string>() == "cell") return MaskType::Cell;
-
-            if (!props.contains("classification")) return MaskType::None;
-
-            const auto& classification = props.at("classification");
-            if (!classification.contains("name")) return MaskType::None;
-
-            if (classification.at("name").as<std::string>() == "ROI") return MaskType::Roi;
-            if (classification.at("name").as<std::string>() == "TISSUE") return MaskType::Tissue;
-
-            return MaskType::None;
-        };
-
-        auto parseName = [](const jsoncons::json& feat, std::vector<std::string>& names, const std::string& prefix, int& counter) -> void
-        {
-            if (feat.at("properties").contains("name")) {
-                names.push_back(feat.at("properties").at("name").as<std::string>());
-            }
-            else {
-                names.push_back(fmt::format("{} {}", prefix, counter++));
-            }
-
-        };
-
-        auto parseNameID = [](const jsoncons::json& feat, std::vector<std::string>& names, const std::string& prefix, int& counter) -> void
-        {
-            if (feat.contains("id")) {
-                names.push_back(feat.at("id").as<std::string>());
-            }
-            else {
-                names.push_back(fmt::format("{} {}", prefix, counter++));
-            }
-        };
-
-        auto parseGeometry = [](const jsoncons::json& feat, std::vector<std::vector<Point2D>>& polygons, const std::string& geometryKey = "geometry") -> void
-        {
-            std::vector<Point2D>& poly_points = polygons.emplace_back();
-
-            if (feat.contains(geometryKey) && feat.at(geometryKey).contains("coordinates")) {
-                const auto& base_coords = feat.at(geometryKey).at("coordinates");
-                if (base_coords.empty()) return;
-
-                const auto& first_elem = base_coords.at(0);
-                if (first_elem.empty()) return;
-
-                // Default to standard Polygon level
-                const jsoncons::json* coordinates = &first_elem;
-
-                // Check an extra level of nesting (this seems occasionally be the case)
-                // If first_elem[0][0] is an array, we are nested one level too deep.
-                if (first_elem[0].is_array() && !first_elem[0].empty() && first_elem[0][0].is_array()) {
-                    coordinates = &first_elem.at(0);
-                }
-
-                poly_points.reserve(coordinates->size());
-                for (const auto& coords : coordinates->array_range()) {
-                    poly_points.push_back(coords.as<Point2D>());
-                }
-            }
-        };
-
-        auto parseGeometryNucleus = [parseGeometry](const jsoncons::json& feat, std::vector<std::vector<Point2D>>& polygons) -> void
-        {
-            parseGeometry(feat, polygons, "nucleusGeometry");
-        };
-
-        auto parseColor = [](const jsoncons::json& feat, std::vector<std::array<uint8_t, 3>>& colors) -> void
-        {
-            std::array<uint8_t, 3>& color = colors.emplace_back();
-
-            if (feat.at("properties").contains("classification") &&
-                feat.at("properties").at("classification").contains("color"))
-            {
-                const auto feat_color = feat.at("properties").at("classification").at("color").as<std::vector<uint8_t>>();
-                color = { feat_color[0], feat_color[1], feat_color[2] };
-            }
-            else {
-                color = { 128, 128, 128 };
-            }
-        };
 
         try {
             jsoncons::json_stream_cursor cursor(f);

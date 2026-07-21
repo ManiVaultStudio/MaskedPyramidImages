@@ -11,6 +11,7 @@ target_sources(tifftest
         ../PyramidTiffData/src/PolygonData.cpp
         ../PyramidTiffData/src/UtilsTransform.cpp
         ../PyramidTiffData/src/UtilsRoiArrangement.cpp
+        ../PyramidTiffData/src/UtilsJson.cpp
 )
 
 target_include_directories(tifftest
