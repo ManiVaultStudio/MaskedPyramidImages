@@ -295,10 +295,13 @@ namespace PyramidTiffData {
     // =============================================================================
 
     void save_shifted_coordinates_json(
-        const RoiLayout& layout,
-        const PyramidTiffData::TiffSeries& series,
+        const RoiLayout& layout, const std::vector<Roi>* tissues,
+        const std::vector<Roi>* cells, const std::vector<Roi>* nuclei,
         const std::filesystem::path& out_json_path)
     {
+        assert(!tissues || tissues->size() == layout.placements.size());
+        assert(!cells || cells->size() == nuclei->size());
+
         std::ofstream output_file(out_json_path);
         json_stream_encoder encoder(output_file);
 
@@ -308,40 +311,51 @@ namespace PyramidTiffData {
         encoder.key("features");
         encoder.begin_array();
 
-        for (const auto& p : layout.placements) {
-            ojson feature(jsoncons::json_object_arg);
-            feature["type"] = "Feature";
-            feature["id"] = p.roi.id;
+        auto parse_geometry = [&layout](ojson& feat, const RoiPlacement& placement, const std::vector<Point2D>& ring, std::string feat_name = "geometry")
+        {
+            ojson geometry(jsoncons::json_object_arg);
+            geometry["type"] = "Polygon";
 
-            // Geometry
-	        {
-		        ojson geometry(jsoncons::json_object_arg);
-            	geometry["type"] = "Polygon";
+            const double dest_x_L = static_cast<double>(placement.grid_col) * (layout.cell_width + layout.padding);
+            const double dest_y_L = static_cast<double>(placement.grid_row) * (layout.cell_height + layout.padding);
 
-            	const double dest_x_L = static_cast<double>(p.grid_col) * (layout.cell_width + layout.padding);
-            	const double dest_y_L = static_cast<double>(p.grid_row) * (layout.cell_height + layout.padding);
-        	
-            	std::vector<PyramidTiffData::Point2D> coords;
-            	coords.reserve(p.roi.ring.size());
-            	for (const auto& pt : p.roi.ring) {
-            		const double nx = pt.x - p.roi.x_min + dest_x_L;
-            		const double ny = pt.y - p.roi.y_min + dest_y_L;
-            		coords.emplace_back(nx, ny);
-            	}
+            std::vector<PyramidTiffData::Point2D> coords;
+            coords.reserve(ring.size());
+            for (const auto& pt : ring) {
+                const double nx = pt.x - placement.roi.x_min + dest_x_L;
+                const double ny = pt.y - placement.roi.y_min + dest_y_L;
+                coords.emplace_back(nx, ny);
+            }
 
-                // This mirrors the nesting of the original file
-            	geometry["coordinates"] = std::vector<std::vector<Point2D>>{ coords };
-            	feature["geometry"] = std::move(geometry);
-	        }
+            // This mirrors the nesting of the original file
+            geometry["coordinates"] = std::vector<std::vector<Point2D>>{ coords };
+            feat[feat_name] = std::move(geometry);
+        };
+
+    	auto parse_feature = [&encoder, parse_geometry](const std::string maskType, const std::string& maskID, 
+            const RoiPlacement& placement, const std::vector<Point2D>& ring_geom, const std::vector<Point2D>* ring_nucleus = nullptr)
+	    {
+            ojson feat(jsoncons::json_object_arg);
+
+            feat["type"] = "Feature";
+            feat["id"] = maskID;
+
+	        parse_geometry(feat, placement, ring_geom);
+
+            if (ring_nucleus)
+                parse_geometry(feat, placement, *ring_nucleus, "nucleusGeometry");
 
             // Properties
+			if (maskType == "ROI" || maskType == "TISSUE")
             {
                 ojson properties(jsoncons::json_object_arg);
                 properties["objectType"] = "annotation";
-                properties["name"] = p.roi.name;
+                properties["name"] = placement.roi.name;
 
                 ojson classification(jsoncons::json_object_arg);
-                classification["name"] = "ROI";
+
+                if (maskType == "ROI")
+                    classification["name"] = maskType;
 
                 ojson color(json_array_arg);
                 color.push_back(placement.roi.color[0]);
@@ -352,10 +366,42 @@ namespace PyramidTiffData {
                 properties["classification"] = std::move(classification);
                 properties["isLocked"] = true;
 
-                feature["properties"] = std::move(properties);
+                feat["properties"] = std::move(properties);
+            }
+            else
+            {
+                ojson properties(jsoncons::json_object_arg);
+                properties["objectType"] = "cell";
+                feat["properties"] = std::move(properties);
             }
 
-            feature.dump(encoder);
+            feat.dump(encoder);
+	    };
+
+        for (std::size_t roi_counter = 0; roi_counter < layout.placements.size(); ++roi_counter) {
+            const auto& p = layout.placements[roi_counter];
+            parse_feature("ROI", p.roi.id, p, p.roi.ring);
+
+            if (tissues)
+            {
+                const auto& tissue = tissues->at(roi_counter);
+                parse_feature("TISSUE", tissue.id, p, tissue.ring);
+            }
+
+            if (cells && nuclei)
+            {
+                const std::string& roi_name = p.roi.name;
+
+                for (std::size_t i = 0; i < cells->size(); ++i) {
+                    const auto& cell = cells->at(i);
+                    const auto& nucleus = nuclei->at(i);
+                    if (cell.name != roi_name) continue;
+
+                    parse_feature("CELL", cell.id, p, cell.ring, &(nucleus.ring));
+                }
+
+            }
+
         }
 
         encoder.end_array();
@@ -694,7 +740,7 @@ namespace PyramidTiffData {
             layout.cell_width, layout.cell_height);
 
         fmt::println("Save new json to {}", out_coords_json_path);
-        save_shifted_coordinates_json(layout, series, out_coords_json_path);
+        save_shifted_coordinates_json(layout, &tissues, &cells, &nuclei, out_coords_json_path);
 
         fmt::println("Shifting ROIs from {}", tiff_pyramid_path);
         const std::vector<LevelCanvas> canvases = shift_roi_to_new_canvas(tiff_pyramid, series, series_idx, layout);

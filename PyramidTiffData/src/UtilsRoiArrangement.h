@@ -126,7 +126,7 @@ namespace PyramidTiffData {
     // using PyramidTiffData::TiffSeries::scaleFactorWidth/Height, clamping source
     // rectangles to the level's bounds (relevant only at the source image edges).
     [[nodiscard]] std::vector<LevelRoiRect> scale_placements_to_level(
-        const RoiLayout& layout,
+        const RoiLayout& layout, 
         const PyramidTiffData::TiffSeries& series,
         size_t level_idx);
 
@@ -136,8 +136,8 @@ namespace PyramidTiffData {
 
     // Writes the shifted ROI coordinates for every pyramid level to JSON.
     void save_shifted_coordinates_json(
-        const RoiLayout& layout,
-        const PyramidTiffData::TiffSeries& series,
+        const RoiLayout& layout, const std::vector<Roi>* tissues,
+        const std::vector<Roi>* cells, const std::vector<Roi>* nuclei,
         const std::filesystem::path& out_json_path);
 
     // Full pipeline: for every pyramid level of `series_idx`, reads the level,
