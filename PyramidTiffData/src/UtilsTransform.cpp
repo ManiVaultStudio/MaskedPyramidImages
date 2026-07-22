@@ -138,6 +138,10 @@ namespace PyramidTiffData {
         const auto img_width_d = static_cast<double>(img_width);
         const auto max_id = static_cast<uint64_t>(img_width) * img_height;
 
+        std::vector<uint32_t> local_indices;
+        if (!pixel_counts.empty())
+            local_indices.reserve(pixel_counts.back());
+
         // Iterate through each scanline
         for (uint32_t y = static_cast<uint32_t>(minY); y <= maxY; ++y) {
             const double scanline = static_cast<double>(y) + 0.5; // pixel center
@@ -153,7 +157,7 @@ namespace PyramidTiffData {
                 if ((yi <= scanline && yj > scanline) || (yj <= scanline && yi > scanline)) {
                 	const double nodeX = xi + (scanline - yi) / (yj - yi) * (xj - xi);
                     const double clampedX = std::clamp(nodeX, 0.0, img_width_d - 1.0);
-                    nodes.push_back(static_cast<uint32_t>(std::lround(clampedX)));
+                    nodes.push_back(static_cast<uint32_t>(std::round(clampedX)));
                 }
                 j = i;
             }
@@ -171,10 +175,17 @@ namespace PyramidTiffData {
                     // Convert 2D to 1D index
                     if (const uint64_t idx = static_cast<uint64_t>(y) * img_width + x;
                         idx < max_id)
-                        indices.push_back(static_cast<uint32_t>(idx));
+                        local_indices.push_back(static_cast<uint32_t>(idx));
                 }
             }
         }
+
+        sortAndUnique(local_indices);
+
+        indices.reserve(indices.size() + local_indices.size());
+        indices.insert(indices.end(),
+            std::make_move_iterator(local_indices.begin()),
+            std::make_move_iterator(local_indices.end()));
 
         const uint32_t count_after = static_cast<uint32_t>(indices.size());
         pixel_counts.push_back(count_after - count_before);
