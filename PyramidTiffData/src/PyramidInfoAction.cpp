@@ -14,6 +14,10 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     _numberOfLevelsAction(this, "Levels"),
     _numberOfChannelsAction(this, "Channels"),
     _resolutionsAction(this, "Resolutions"),
+    _loadRoisAction(this, "Load Rois"),
+    _loadTissuesAction(this, "Load Tissues"),
+    _loadCellsAction(this, "Load Cells"),
+    _loadNucleiAction(this, "Load Nuclei"),
     _readLevelAction(this, "Read level")
 {
     setText("Info");
@@ -28,6 +32,10 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     GroupAction::addAction(&_numberOfLevelsAction, -1, readOnlyWidget);
     GroupAction::addAction(&_numberOfChannelsAction, -1, readOnlyWidget);
     GroupAction::addAction(&_resolutionsAction);
+    GroupAction::addAction(&_loadRoisAction);
+    GroupAction::addAction(&_loadTissuesAction);
+    GroupAction::addAction(&_loadCellsAction);
+    GroupAction::addAction(&_loadNucleiAction);
     GroupAction::addAction(&_readLevelAction);
 }
 
@@ -41,6 +49,10 @@ void PyramidInfoAction::fromVariantMap(const QVariantMap& variantMap)
     _numberOfChannelsAction.fromVariantMap(variantMap);
     _resolutionsAction.fromVariantMap(variantMap);
     _readLevelAction.fromVariantMap(variantMap);
+    _loadRoisAction.fromVariantMap(variantMap);
+    _loadTissuesAction.fromVariantMap(variantMap);
+    _loadCellsAction.fromVariantMap(variantMap);
+    _loadNucleiAction.fromVariantMap(variantMap);
 }
 
 QVariantMap PyramidInfoAction::toVariantMap() const
@@ -53,6 +65,10 @@ QVariantMap PyramidInfoAction::toVariantMap() const
     _numberOfChannelsAction.insertIntoVariantMap(variantMap);
     _resolutionsAction.insertIntoVariantMap(variantMap);
     _readLevelAction.insertIntoVariantMap(variantMap);
+    _loadRoisAction.insertIntoVariantMap(variantMap);
+    _loadTissuesAction.insertIntoVariantMap(variantMap);
+    _loadCellsAction.insertIntoVariantMap(variantMap);
+    _loadNucleiAction.insertIntoVariantMap(variantMap);
 
     return variantMap;
 }

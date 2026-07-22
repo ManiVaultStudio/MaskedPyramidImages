@@ -299,6 +299,15 @@ void PyramidImage::scan() const
     _infoAction->getNumberOfChannelsAction().setString(QString::number(series.channels));
     _infoAction->getResolutionsAction().setOptions(resolutions);
     _infoAction->getResolutionsAction().setCurrentIndex(static_cast<int>(numLevels - 1));
+    const auto& polygons = pyramidData->getPolygons();
+    _infoAction->getLoadRoisAction().setChecked(polygons.has_roi());
+    _infoAction->getLoadRoisAction().setEnabled(polygons.has_roi());
+    _infoAction->getLoadTissuesAction().setChecked(polygons.has_tissue());
+    _infoAction->getLoadTissuesAction().setEnabled(polygons.has_tissue());
+    _infoAction->getLoadCellsAction().setChecked(polygons.has_cell());
+    _infoAction->getLoadCellsAction().setEnabled(polygons.has_cell());
+    _infoAction->getLoadNucleiAction().setChecked(polygons.has_nucleus());
+    _infoAction->getLoadNucleiAction().setEnabled(polygons.has_nucleus());
     _infoAction->getReadLevelAction().setEnabled(true);
 
 }
@@ -420,29 +429,31 @@ void PyramidImage::read_level()
 
     };
 
-    if (pyramidData->getPolygons().has_roi())
+    const auto& polygons = pyramidData->getPolygons();
+
+    if (polygons.has_roi() && _infoAction->getLoadRoisAction().isChecked())
     {
         fmt::println("Transform ROI mask");
-        auto [maskIDs_roi, pixel_counts_roi] = pyramidData->getPolygons().getMaskRoi(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_roi, pixel_counts_roi, pyramidData->getPolygons().names_roi(), "ROI", &pyramidData->getPolygons().colors_roi());
+        auto [maskIDs_roi, pixel_counts_roi] = polygons.getMaskRoi(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
+        publicMaskData(maskIDs_roi, pixel_counts_roi, polygons.names_roi(), "ROI", &polygons.colors_roi());
     }
-    if (pyramidData->getPolygons().has_tissue())
+    if (polygons.has_tissue() && _infoAction->getLoadTissuesAction().isChecked())
     {
         fmt::println("Transform TISSUE mask");
-        auto [maskIDs_tissue, pixel_counts_tissue] = pyramidData->getPolygons().getMaskTissue(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_tissue, pixel_counts_tissue, pyramidData->getPolygons().names_tissue(), "TISSUE", &pyramidData->getPolygons().colors_tissue());
+        auto [maskIDs_tissue, pixel_counts_tissue] = polygons.getMaskTissue(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
+        publicMaskData(maskIDs_tissue, pixel_counts_tissue, polygons.names_tissue(), "TISSUE", &polygons.colors_tissue());
     }
-    if (pyramidData->getPolygons().has_cell())
+    if (polygons.has_cell() && _infoAction->getLoadCellsAction().isChecked())
     {
         fmt::println("Transform CELL mask");
-        auto [maskIDs_cell, pixel_counts_cell] = pyramidData->getPolygons().getMaskCell(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_cell, pixel_counts_cell, pyramidData->getPolygons().names_cell(), "CELL");
+        auto [maskIDs_cell, pixel_counts_cell] = polygons.getMaskCell(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
+        publicMaskData(maskIDs_cell, pixel_counts_cell, polygons.names_cell(), "CELL");
     }
-    if (pyramidData->getPolygons().has_nucleus())
+    if (polygons.has_nucleus() && _infoAction->getLoadNucleiAction().isChecked())
     {
         fmt::println("Transform NUCLEUS mask");
-        auto [maskIDs_nucleus, pixel_counts_nucleus] = pyramidData->getPolygons().getMaskNucleus(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, pyramidData->getPolygons().names_cell(), "NUCLEUS");
+        auto [maskIDs_nucleus, pixel_counts_nucleus] = polygons.getMaskNucleus(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
+        publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, polygons.names_cell(), "NUCLEUS");
     }
 
 }
