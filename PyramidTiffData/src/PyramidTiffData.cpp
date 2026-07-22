@@ -393,25 +393,25 @@ void PyramidImage::read_level()
         assert(!colors || colors->size() == pixel_counts.size());
 
         uint32_t idsBegin = 0;
-        for (size_t roiID = 0; roiID < pixel_counts.size(); roiID++)
+        for (size_t maskID = 0; maskID < pixel_counts.size(); maskID++)
         {
-            if (pixel_counts[roiID] == 0)
+            if (pixel_counts[maskID] == 0)
                 continue;
 
-            const uint32_t idsEnd = idsBegin + pixel_counts[roiID];
+            const uint32_t idsEnd = idsBegin + pixel_counts[maskID];
             const std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
 
             assert(clusterIDs.size() == pixel_counts[roiID]);
 
             Cluster cluster(
-                QString::fromStdString(polygonNames[roiID]),
+                QString::fromStdString(polygonNames[maskID]),
                 {},
                 clusterIDs
             );
 
             if (colors) {
-                const auto& color = colors->at(roiID);
+                const auto& color = colors->at(maskID);
                 cluster.setColor({ color[0], color[1], color[2] });
             }
             clustersData->addCluster(cluster);
