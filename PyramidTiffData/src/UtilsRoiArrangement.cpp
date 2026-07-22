@@ -721,9 +721,13 @@ namespace PyramidTiffData {
                     // IFD (or EOF) follows naturally.
                 }
             }
+            catch (const std::exception& e) {
+                TIFFClose(out);
+                fmt::println("write_series_to_pyramid_tiff: could not finish due to {}", e.what());
+            }
             catch (...) {
                 TIFFClose(out);
-                throw;
+                fmt::println("write_series_to_pyramid_tiff: could not finish due to unknown error");
             }
 
             TIFFClose(out);
