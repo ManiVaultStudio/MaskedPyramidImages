@@ -122,7 +122,7 @@ namespace PyramidTiffData {
     // Sorts ROIs raster-scan (top-to-bottom, then left-to-right, by bbox
     // top-left corner) and packs them into a ceil(sqrt(n))-wide grid.
     // Throws if `rois` is empty.
-    [[nodiscard]] RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding = 16);
+    [[nodiscard]] RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding = 16, std::vector<Roi>* tissues = nullptr);
 
     // Scales an already-computed full-res layout down to pyramid level `level_idx`
     // using PyramidTiffData::TiffSeries::scaleFactorWidth/Height, clamping source

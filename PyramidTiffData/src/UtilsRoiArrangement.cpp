@@ -9,6 +9,7 @@
 #include <fstream>
 #include <limits>
 #include <stdexcept>
+#include <unordered_map>
 
 #include <fmt/base.h>
 #include <fmt/format.h>
@@ -194,7 +195,7 @@ namespace PyramidTiffData {
     // Layout
     // =============================================================================
 
-    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding) {
+    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues) {
         if (rois.empty())
             throw std::runtime_error("RoiArrangement: compute_roi_layout called with no ROIs");
 
@@ -238,6 +239,21 @@ namespace PyramidTiffData {
             p.dest_y = p.grid_row * (layout.cell_height + layout.padding);
             p.shift_x = p.roi.x_min - p.dest_x;
             p.shift_y = p.roi.y_min - p.dest_y;
+        }
+
+        if (tissues)
+        {
+            std::unordered_map<std::string, size_t> roi_order;
+            roi_order.reserve(n);
+            for (size_t i = 0; i < n; ++i) {
+                roi_order[layout.placements[i].roi.name] = i;
+            }
+
+            std::stable_sort(tissues->begin(), tissues->end(), [&](const Roi& a, const Roi& b) {
+                const size_t ia = roi_order.contains(a.name) ? roi_order[a.name] : std::numeric_limits<size_t>::max();
+                const size_t ib = roi_order.contains(b.name) ? roi_order[b.name] : std::numeric_limits<size_t>::max();
+                return ia < ib;
+                });
         }
 
         return layout;
@@ -732,10 +748,10 @@ namespace PyramidTiffData {
         }
 
         fmt::println("Loading ROIs from {}", masks_json_path);
-        const auto [rois, tissues, cells, nuclei] = load_rois_from_json(masks_json_path);
+        auto [rois, tissues, cells, nuclei] = load_rois_from_json(masks_json_path);
 
         fmt::println("Computing new ROIs...");
-        const RoiLayout layout = compute_roi_layout(rois);
+        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues);
 
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,
