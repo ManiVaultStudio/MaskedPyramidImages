@@ -75,10 +75,10 @@ namespace PyramidTiffData {
         std::vector<RoiPlacement> placements{}; // in raster_index order
 
         [[nodiscard]] uint32_t canvas_width()  const {
-            return grid_cols * cell_width + (grid_cols > 0 ? (grid_cols - 1) * padding : 0);
+            return grid_cols * cell_width + grid_cols * padding;
         }
         [[nodiscard]] uint32_t canvas_height() const {
-            return grid_rows * cell_height + (grid_rows > 0 ? (grid_rows - 1) * padding : 0);
+            return grid_rows * cell_height + grid_rows * padding;
         }
     };
 

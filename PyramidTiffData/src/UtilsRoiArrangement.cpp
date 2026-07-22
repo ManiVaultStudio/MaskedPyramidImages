@@ -574,8 +574,8 @@ namespace PyramidTiffData {
                 const uint32_t cell_h = rects.front().cell_h;
                 const uint32_t pad_x = rects.front().pad_x;
                 const uint32_t pad_y = rects.front().pad_y;
-                const uint32_t canvas_w = layout.grid_cols * cell_w + (layout.grid_cols > 0 ? (layout.grid_cols - 1) * pad_x : 0);
-                const uint32_t canvas_h = layout.grid_rows * cell_h + (layout.grid_rows > 0 ? (layout.grid_rows - 1) * pad_y : 0);
+                const uint32_t canvas_w = layout.grid_cols * cell_w + layout.grid_cols * pad_x;
+                const uint32_t canvas_h = layout.grid_rows * cell_h + layout.grid_rows * pad_y;
 
                 LevelCanvas& lc = canvases[level_idx];
                 lc.width = canvas_w;
