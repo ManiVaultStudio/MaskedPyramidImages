@@ -314,7 +314,7 @@ namespace PyramidTiffData {
         encoder.key("features");
         encoder.begin_array();
 
-        auto parse_geometry = [&layout](ojson& feat, const RoiPlacement& placement, const std::vector<Point2D>& ring, std::string feat_name = "geometry")
+        auto parse_geometry = [&layout](ojson& feat, const RoiPlacement& placement, const std::vector<Point2D>& ring, const std::string& feat_name = "geometry")
         {
             ojson geometry(jsoncons::json_object_arg);
             geometry["type"] = "Polygon";
@@ -332,7 +332,7 @@ namespace PyramidTiffData {
             feat[feat_name] = std::move(geometry);
         };
 
-    	auto parse_feature = [&encoder, parse_geometry](const std::string maskType, const std::string& maskID, 
+    	auto parse_feature = [&encoder, parse_geometry](const std::string& maskType, const std::string& maskID, 
             const RoiPlacement& placement, const std::vector<Point2D>& ring_geom, const std::vector<Point2D>* ring_nucleus = nullptr)
 	    {
             ojson feat(jsoncons::json_object_arg);
