@@ -395,25 +395,26 @@ namespace PyramidTiffData {
 
         auto last_pct = ProgressBarInit();
         for (std::size_t roi_counter = 0; roi_counter < layout.placements.size(); ++roi_counter) {
-            const auto& p = layout.placements[roi_counter];
-            parse_feature("ROI", p.roi.id, p, p.roi.ring);
+            const auto& placement = layout.placements[roi_counter];
+
+            parse_feature("ROI", placement.roi.id, placement, placement.roi.ring);
 
             if (tissues)
             {
                 const auto& tissue = tissues->at(roi_counter);
-                parse_feature("TISSUE", tissue.id, p, tissue.ring);
+                parse_feature("TISSUE", tissue.id, placement, tissue.ring);
             }
 
             if (cells && nuclei)
             {
-                const std::string& roi_name = p.roi.name;
+                const std::string& roi_name = placement.roi.name;
 
                 for (std::size_t i = 0; i < cells->size(); ++i) {
                     const auto& cell = cells->at(i);
                     const auto& nucleus = nuclei->at(i);
                     if (cell.name != roi_name) continue;
 
-                    parse_feature("CELL", cell.id, p, cell.ring, &(nucleus.ring));
+                    parse_feature("CELL", cell.id, placement, cell.ring, &(nucleus.ring));
                 }
 
             }
