@@ -229,14 +229,15 @@ namespace PyramidTiffData {
 
         layout.placements.reserve(n);
         for (size_t i = 0; i < n; ++i) {
-            RoiPlacement p;
+            RoiPlacement& p = layout.placements.emplace_back();
             p.roi = *sorted[i];
             p.raster_index = i;
             p.grid_row = static_cast<uint32_t>(i / layout.grid_cols);
             p.grid_col = static_cast<uint32_t>(i % layout.grid_cols);
-            p.dest_x = p.grid_col * (layout.cell_width + padding);
-            p.dest_y = p.grid_row * (layout.cell_height + padding);
-            layout.placements.push_back(std::move(p));
+            p.dest_x = p.grid_col * (layout.cell_width + layout.padding);
+            p.dest_y = p.grid_row * (layout.cell_height + layout.padding);
+            p.shift_x = p.roi.x_min - p.dest_x;
+            p.shift_y = p.roi.y_min - p.dest_y;
         }
 
         return layout;
@@ -318,14 +319,11 @@ namespace PyramidTiffData {
             ojson geometry(jsoncons::json_object_arg);
             geometry["type"] = "Polygon";
 
-            const double dest_x_L = static_cast<double>(placement.grid_col) * (layout.cell_width + layout.padding);
-            const double dest_y_L = static_cast<double>(placement.grid_row) * (layout.cell_height + layout.padding);
-
             std::vector<PyramidTiffData::Point2D> coords;
             coords.reserve(ring.size());
             for (const auto& pt : ring) {
-                const double nx = pt.x - placement.roi.x_min + dest_x_L;
-                const double ny = pt.y - placement.roi.y_min + dest_y_L;
+                const double nx = pt.x - placement.shift_x;
+                const double ny = pt.y - placement.shift_y;
                 coords.emplace_back(nx, ny);
             }
 

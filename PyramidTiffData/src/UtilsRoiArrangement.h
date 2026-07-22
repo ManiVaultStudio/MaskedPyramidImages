@@ -59,8 +59,10 @@ namespace PyramidTiffData {
         uint32_t grid_row{};
         uint32_t grid_col{};
         // Destination top-left corner at FULL resolution.
-        uint32_t dest_x{};
-        uint32_t dest_y{};
+        double dest_x{};
+        double dest_y{};
+        double shift_x{};
+        double shift_y{};
     };
 
     // Full layout: uniform cell size + grid shape + every ROI's placement.
