@@ -57,9 +57,12 @@ namespace PyramidTiffData
         // channel_subifd_offsets vector is empty - use channel_ifds instead.
         std::vector<ImageLevelInfo> pyramid{};
 
-        [[nodiscard]] double scaleFactor(const size_t level) const {
-           return static_cast<double>(pyramid.at(level).width) / static_cast<double>(width);
-        } 
+        [[nodiscard]] double scaleFactorWidth(const size_t level) const {
+            return static_cast<double>(pyramid.at(level).width) / static_cast<double>(width);
+        }
+        [[nodiscard]] double scaleFactorHeight(const size_t level) const {
+            return static_cast<double>(pyramid.at(level).height) / static_cast<double>(height);
+        }
     };
 
     // Collect metadata from the currently active IFD.
@@ -136,7 +139,7 @@ namespace PyramidTiffData
         // Lazily load one level: returns float32 data shaped [channels, height, width]
         // Only reads the IFDs for this level - other levels untouched.
         [[nodiscard]] Image read_level(const size_t series_idx, const size_t level_idx) const;
-        [[nodiscard]] Image read_level(const size_t level_idx) const { return read_level(0, level_idx); };
+        [[nodiscard]] Image read_level(const size_t level_idx) const { return read_level(0, level_idx); }
 
         [[nodiscard]] size_t num_series() const noexcept { return _series.size(); }
 
@@ -167,7 +170,7 @@ namespace PyramidTiffData
 		// PLANARCONFIG_CONTIG the IFD holds spp interleaved channels; for
 		// PLANARCONFIG_SEPARATE each IFD holds exactly one channel.
         void read_ifd_scanlines(
-            float* output,
+            float*        output,
             uint32_t      level_width,
             uint32_t      level_height,
             uint32_t      channel_offset,   // channel index of first sample in this IFD

@@ -1,5 +1,7 @@
 #include "PolygonData.h"
 
+#include "UtilsJson.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -20,63 +22,36 @@
 #include <jsoncons/json.hpp>
 #include <jsoncons/json_cursor.hpp>
 
-namespace jsoncons {
-    template<class Json>
-    struct json_type_traits<Json, PyramidTiffData::Point2D> {
-        static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2 &&
-                j[0].is_number() && j[1].is_number();
-        }
-
-        static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
-            // round to the nearest pixel rather than requiring an exact integer.
-            const double x = j[0].as_double();
-            const double y = j[1].as_double();
-
-            return {
-                .x = static_cast<uint32_t>(std::llround(x)),
-                .y = static_cast<uint32_t>(std::llround(y))
-            };
-        }
-
-        static Json to_json(const PyramidTiffData::Point2D& p) {
-            Json j(json_array_arg);
-            j.push_back(p.x);
-            j.push_back(p.y);
-            return j;
-        }
-    };
-}
-
 namespace PyramidTiffData {
 
     // =============================================================================
     // Helper
     // =============================================================================
 
-    constexpr uintmax_t ProgressBarWidth = 40;
+    namespace {
+        constexpr uintmax_t ProgressBarWidth = 40;
 
-    inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
-    {
-        const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
-        if (pct != previous_pct) {
-            previous_pct = pct;
-            const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
-            fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
-            [[maybe_unused]] int success = std::fflush(stdout);
+        inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
+        {
+            const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
+            if (pct != previous_pct) {
+                previous_pct = pct;
+                const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
+                fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
+                [[maybe_unused]] int success = std::fflush(stdout);
+            }
+
         }
 
-    }
+        inline void ProgressBarFinish()
+        {
+            fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
+        }
 
-    inline void ProgressBarFinish()
-    {
-        fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
-    }
-
-    inline std::uintmax_t ProgressBarInit()
-    {
-        return 0;
+        inline std::uintmax_t ProgressBarInit()
+        {
+            return 0;
+        }
     }
 
     // =============================================================================
@@ -106,95 +81,6 @@ namespace PyramidTiffData {
 
         bool found_features = false;
 
-        auto getMaskType = [](const jsoncons::json& feat) -> MaskType
-        {
-            if (!feat.contains("properties")) return MaskType::None;
-
-            const auto& props = feat.at("properties");
-
-            if (!props.contains("objectType")) return MaskType::None;
-
-            if (props.at("objectType").as<std::string>() == "cell") return MaskType::Cell;
-
-            if (!props.contains("classification")) return MaskType::None;
-
-            const auto& classification = props.at("classification");
-            if (!classification.contains("name")) return MaskType::None;
-
-            if (classification.at("name").as<std::string>() == "ROI") return MaskType::Roi;
-            if (classification.at("name").as<std::string>() == "TISSUE") return MaskType::Tissue;
-
-            return MaskType::None;
-        };
-
-        auto parseName = [](const jsoncons::json& feat, std::vector<std::string>& names, const std::string& prefix, int& counter) -> void
-        {
-            if (feat.at("properties").contains("name")) {
-                names.push_back(feat.at("properties").at("name").as<std::string>());
-            }
-            else {
-                names.push_back(fmt::format("{} {}", prefix, counter++));
-            }
-
-        };
-
-        auto parseNameID = [](const jsoncons::json& feat, std::vector<std::string>& names, const std::string& prefix, int& counter) -> void
-        {
-            if (feat.contains("id")) {
-                names.push_back(feat.at("id").as<std::string>());
-            }
-            else {
-                names.push_back(fmt::format("{} {}", prefix, counter++));
-            }
-        };
-
-        auto parseGeometry = [](const jsoncons::json& feat, std::vector<std::vector<Point2D>>& polygons, const std::string& geometryKey = "geometry") -> void
-        {
-            std::vector<Point2D>& poly_points = polygons.emplace_back();
-
-            if (feat.contains(geometryKey) && feat.at(geometryKey).contains("coordinates")) {
-                const auto& base_coords = feat.at(geometryKey).at("coordinates");
-                if (base_coords.empty()) return;
-
-                const auto& first_elem = base_coords.at(0);
-                if (first_elem.empty()) return;
-
-                // Default to standard Polygon level
-                const jsoncons::json* coordinates = &first_elem;
-
-                // Check an extra level of nesting (this seems occasionally be the case)
-                // If first_elem[0][0] is an array, we are nested one level too deep.
-                if (first_elem[0].is_array() && !first_elem[0].empty() && first_elem[0][0].is_array()) {
-                    coordinates = &first_elem.at(0);
-                }
-
-                poly_points.reserve(coordinates->size());
-                for (const auto& coords : coordinates->array_range()) {
-                    poly_points.push_back(coords.as<Point2D>());
-                }
-            }
-        };
-
-        auto parseGeometryNucleus = [parseGeometry](const jsoncons::json& feat, std::vector<std::vector<Point2D>>& polygons) -> void
-        {
-            parseGeometry(feat, polygons, "nucleusGeometry");
-        };
-
-        auto parseColor = [](const jsoncons::json& feat, std::vector<std::array<uint8_t, 3>>& colors) -> void
-        {
-            std::array<uint8_t, 3>& color = colors.emplace_back();
-
-            if (feat.at("properties").contains("classification") &&
-                feat.at("properties").at("classification").contains("color"))
-            {
-                const auto feat_color = feat.at("properties").at("classification").at("color").as<std::vector<uint8_t>>();
-                color = { feat_color[0], feat_color[1], feat_color[2] };
-            }
-            else {
-                color = { 128, 128, 128 };
-            }
-        };
-
         try {
             jsoncons::json_stream_cursor cursor(f);
 
@@ -204,7 +90,7 @@ namespace PyramidTiffData {
             bool in_features_array = false;
 
             const uintmax_t total_bytes = std::filesystem::file_size(path);
-            jsoncons::json_decoder<jsoncons::json> decoder;
+            jsoncons::json_decoder<jsoncons::ojson> decoder;
 
             fmt::println("Reading the json file...");
 
@@ -232,7 +118,7 @@ namespace PyramidTiffData {
                     // Pull exactly one "feature" object into memory, process it,
                     // then let it go out of scope, the rest of the file stays unread.
                     cursor.read_to(decoder);
-                    const jsoncons::json feature = decoder.get_result();
+                    const jsoncons::ojson feature = decoder.get_result();
 
                     const auto maskType = getMaskType(feature);
 
@@ -282,6 +168,8 @@ namespace PyramidTiffData {
             return;
         }
 
+        f.close();
+
         if (!found_features) {
             fmt::println("PolygonData::parse_mask_annotations: json does not contain features field");
             return;
@@ -295,56 +183,54 @@ namespace PyramidTiffData {
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_roi);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_roi);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskTissue(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_tissue);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_tissue);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskCell(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_cell);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_cell);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactor) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskNucleus(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
     {
-        return downscaleMask(scaleFactor, _polygons_nucleus);
+        return downscaleMask(scaleFactorWidth, scaleFactorHeight, imgWidthScaled, imgHeightScaled, _polygons_nucleus);
     }
 
-    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactor,
-        const std::vector<std::vector<Point2D>>& polygons_roi) const
+    std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::downscaleMask(const double scaleFactorWidth, const double scaleFactorHeight,
+        const uint32_t imgWidthScaled, const uint32_t imgHeightScaled,
+        const std::vector<std::vector<Point2D>>& polygons)
     {
         std::vector<uint32_t> indices{};
-        std::vector<uint32_t> pixel_counts{};
+        std::vector<uint32_t> pixelCounts{};
 
-        auto scale_coords = [](const std::vector<Point2D>& points, const double scaleFactor) -> std::vector<Point2D> {
+        auto scale_coords = [scaleFactorWidth, scaleFactorHeight](const std::vector<Point2D>& points) -> std::vector<Point2D> {
             std::vector<Point2D> points_scaled(points.size());
 
 #pragma omp parallel for
             for (int64_t i = 0; i < static_cast<int64_t>(points.size()); ++i) {
                 points_scaled[i] = {
-                    .x = static_cast<uint32_t>(static_cast<double>(points[i].x) * scaleFactor),
-                    .y = static_cast<uint32_t>(static_cast<double>(points[i].y) * scaleFactor)
+                    .x = std::round(points[i].x * scaleFactorWidth),
+                    .y = std::round(points[i].y * scaleFactorHeight)
                 };
             }
 
             return points_scaled;
             };
 
-        const uint32_t img_width_scaled     = (scaleFactor == 1.0) ? _img_width : static_cast<uint32_t>(static_cast<double>(_img_width) * scaleFactor);
-        const uint32_t img_height_scaled    = (scaleFactor == 1.0) ? _img_height : static_cast<uint32_t>(static_cast<double>(_img_height) * scaleFactor);
-
         auto last_pct = ProgressBarInit();
         std::uintmax_t currentID = 0;
-        for (const auto& coords : polygons_roi) {
-            const auto& coords_scaled = (scaleFactor == 1.0) ? coords : scale_coords(coords, scaleFactor);
-            rasterize_polygon(coords_scaled, img_width_scaled, img_height_scaled, indices, pixel_counts);
+        for (const auto& coords : polygons) {
+            const auto& coords_scaled = (scaleFactorWidth == 1.0) ? coords : scale_coords(coords);
+            rasterize_polygon(coords_scaled, imgWidthScaled, imgHeightScaled, indices, pixelCounts);
 
-            ProgressBarPrint(currentID++, last_pct, polygons_roi.size());
+            ProgressBarPrint(currentID++, last_pct, polygons.size());
         }
         ProgressBarFinish();
 
@@ -352,37 +238,37 @@ namespace PyramidTiffData {
 #pragma omp parallel for
         for (int64_t id = 0; id < static_cast<int64_t>(indices.size()); ++id) {
             const uint32_t v = indices[id];
-            const uint32_t row = v / img_width_scaled;
-            const uint32_t col = v % img_width_scaled;
-            indices[id] = (img_height_scaled - 1 - row) * img_width_scaled + col;
+            const uint32_t row = v / imgWidthScaled;
+            const uint32_t col = v % imgWidthScaled;
+            indices[id] = (imgHeightScaled - 1 - row) * imgWidthScaled + col;
         }
 
-        assert(indices.size() == std::reduce(pixel_counts.begin(), pixel_counts.end(), 0ull));
+        assert(indices.size() == std::reduce(pixelCounts.begin(), pixelCounts.end(), 0ull));
 
-        return { indices , pixel_counts };
+        return { indices , pixelCounts };
     }
 
     void PolygonData::print_info(const size_t max_polygons_to_show ) const
     {
         fmt::print("PolygonData Information");
     	fmt::print("Image Dimensions: {}x{}\n", _img_width, _img_height);
-        fmt::print("Total Polygons Detected: {}\n", _names_tissue.size());
+        fmt::print("Total Polygons Detected: {}\n", _names_roi.size());
 
         // Print details for a limited number of polygons
-        const size_t polygons_to_show = std::min(_names_tissue.size(), max_polygons_to_show);
+        const size_t polygons_to_show = std::min(_names_roi.size(), max_polygons_to_show);
 
         fmt::print("\n--- Polygon Details ({}/{} shown) ---\n",
-            polygons_to_show, _names_tissue.size());
+            polygons_to_show, _names_roi.size());
 
         for (size_t i = 0; i < polygons_to_show; ++i) {
             fmt::print("  - Polygon {}: Name='{}', Color=({}, {}, {})\n",
                 i + 1,
-                _names_tissue[i],
+                _names_roi[i],
                 _colors_roi[i][0], _colors_roi[i][1], _colors_roi[i][2]);
         }
 
-        if (_names_tissue.size() > max_polygons_to_show) {
-            fmt::print("  ... {} more polygons not shown.\n", _names_tissue.size() - max_polygons_to_show);
+        if (_names_roi.size() > max_polygons_to_show) {
+            fmt::print("  ... {} more polygons not shown.\n", _names_roi.size() - max_polygons_to_show);
         }
 
         fmt::print("{:-<60}\n", "");

@@ -6,11 +6,18 @@
 namespace PyramidTiffData {
 
     struct Point2D {
-        uint32_t x;
-        uint32_t y;
+        double x;
+        double y;
 
         bool operator==(const Point2D&) const = default;
         bool operator!=(const Point2D&) const = default;
+    };
+
+    struct Rect {
+        uint32_t x, y, w, h;
+
+        bool operator==(const Rect&) const = default;
+        bool operator!=(const Rect&) const = default;
     };
 
     enum class MaskType : uint8_t

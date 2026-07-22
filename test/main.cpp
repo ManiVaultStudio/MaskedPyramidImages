@@ -1,5 +1,8 @@
 #include "OmeTiffPyramid.h"
 #include "PolygonData.h"
+#include "UtilsJson.h"
+#include "UtilsTransform.h"
+#include "UtilsRoiArrangement.h"
 
 #include <fstream>
 #include <filesystem>
@@ -16,35 +19,6 @@
 #include <jsoncons/json_cursor.hpp>
 #include <jsoncons/json_encoder.hpp>
 
-namespace jsoncons {
-    template<class Json>
-    struct json_type_traits<Json, PyramidTiffData::Point2D> {
-        static bool is(const Json& j) {
-            return j.is_array() && j.size() >= 2 &&
-                j[0].is_number() && j[1].is_number();
-        }
-
-        static PyramidTiffData::Point2D as(const Json& j) {
-            // Coordinates can carry sub-pixel precision (e.g. 10562.5):
-            // round to the nearest pixel rather than requiring an exact integer.
-            const double x = j[0].as_double();
-            const double y = j[1].as_double();
-
-            return {
-                .x = static_cast<uint32_t>(std::llround(x)),
-                .y = static_cast<uint32_t>(std::llround(y))
-            };
-        }
-
-        static Json to_json(const PyramidTiffData::Point2D& p) {
-            Json j(json_array_arg);
-            j.push_back(p.x);
-            j.push_back(p.y);
-            return j;
-        }
-    };
-}
-
 using namespace jsoncons;
 
 namespace utils
@@ -56,6 +30,14 @@ namespace utils
         auto result = p;
         result.replace_extension(ext);
         return result;
+    }
+
+    static std::filesystem::path insertSuffixExtension(
+        const std::filesystem::path& p,
+        const std::string& suffix)
+    {
+        return p.parent_path() /
+            (p.stem().string() + suffix + p.extension().string());
     }
 
     static void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath, int file_number) {
@@ -82,7 +64,7 @@ namespace utils
                         const auto points = coords[0].as<std::vector<PyramidTiffData::Point2D>>();
                     }
                     catch (const std::exception& e) {
-                        std::cerr << "Error parsing coordinates: " << e.what() << std::endl;
+                       fmt::println("Error parsing coordinates: {}", e.what());
                     }
                 }
             }
@@ -257,10 +239,10 @@ namespace utils
 
         // write images
         constexpr size_t current_series = 0;
-        const auto current_channel = tiffReader.num_levels(current_series) - 1;
-        const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_channel);
+        const auto current_level = tiffReader.num_levels(current_series) - 1;
+        const PyramidTiffData::Image single_level = tiffReader.read_level(current_series, current_level);
 
-        PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_channel));
+        PyramidTiffData::write_to_disk_as_single_page_tiffs(single_level, fmt::format("./output_channels_level_{}", current_level));
     }
 
 }
@@ -279,10 +261,16 @@ int main(int argc, char* argv[]) {
     fmt::println("Reading file: {}", img_path);
     fmt::println("JSON file: {}", json_path);
 
+    constexpr bool VERBOSE = true;
+
 	try {
-        utils::copy_tiff_file(img_path, json_path);
-        utils::split_json_file(json_path);
-        utils::extract_roi_json_file(json_path);
+        //utils::copy_tiff_file(img_path, json_path);
+        //utils::split_json_file(json_path);
+        //utils::extract_roi_json_file(json_path);
+
+        PyramidTiffData::repack_rois_to_pyramid(img_path, json_path,
+            utils::insertSuffixExtension(img_path, "new"),
+            utils::insertSuffixExtension(json_path, "new"));
     }
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());

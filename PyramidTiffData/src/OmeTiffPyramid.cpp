@@ -448,7 +448,7 @@ namespace PyramidTiffData {
             for (uint32_t sy = 0; sy < rows_to_read; ++sy) {
                 for (uint32_t sx = 0; sx < w; ++sx) {
                     for (uint16_t c = 0; c < spp; ++c) {
-                        const size_t out_idx = static_cast<size_t>(c) * w * h + (y + sy) * w + sx;
+                        const size_t out_idx = static_cast<size_t>(c) * w * h + static_cast<size_t>(y + sy) * w + sx;
                         out[out_idx] = decoded[static_cast<size_t>(sy) * w * spp + static_cast<size_t>(sx) * spp + c];
                     }
                 }
@@ -582,7 +582,7 @@ namespace PyramidTiffData {
             for (size_t l_idx = 0; l_idx < s.pyramid.size(); ++l_idx) {
                 const auto& lvl = s.pyramid[l_idx];
 
-                const double scale = s.scaleFactor(l_idx);
+                const double scale = s.scaleFactorWidth(l_idx);
 
                 const auto storage =
                     (l_idx == 0)
@@ -590,7 +590,7 @@ namespace PyramidTiffData {
                     : fmt::format("{} SubIFDs", lvl.channel_subifd_offsets.size());
 
                 fmt::print(
-                    "    [{}] {:>6} x {:>6} | Scale: {:>5.2f}x | {}\n",
+                    "    [{}] {:>6} x {:>6} | Scale: {:>5.3f}x | {}\n",
                     l_idx,
                     lvl.width,
                     lvl.height,
