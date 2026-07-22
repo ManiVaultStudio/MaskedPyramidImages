@@ -90,7 +90,7 @@ namespace PyramidTiffData {
             bool in_features_array = false;
 
             const uintmax_t total_bytes = std::filesystem::file_size(path);
-            jsoncons::json_decoder<jsoncons::json> decoder;
+            jsoncons::json_decoder<jsoncons::ojson> decoder;
 
             fmt::println("Reading the json file...");
 
@@ -118,7 +118,7 @@ namespace PyramidTiffData {
                     // Pull exactly one "feature" object into memory, process it,
                     // then let it go out of scope, the rest of the file stays unread.
                     cursor.read_to(decoder);
-                    const jsoncons::json feature = decoder.get_result();
+                    const jsoncons::ojson feature = decoder.get_result();
 
                     const auto maskType = getMaskType(feature);
 

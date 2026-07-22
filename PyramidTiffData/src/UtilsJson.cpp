@@ -4,7 +4,7 @@
 
 namespace PyramidTiffData {
 
-    MaskType getMaskType(const jsoncons::json& feat)
+    MaskType getMaskType(const jsoncons::ojson& feat)
     {
         if (!feat.contains("properties"))
             return MaskType::None;
@@ -37,7 +37,7 @@ namespace PyramidTiffData {
     }
 
     void parseName(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::string& name,
         const std::string& prefix,
         int& counter)
@@ -51,7 +51,7 @@ namespace PyramidTiffData {
     }
 
     void parseNameID(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::string& name,
         const std::string& prefix,
         int& counter)
@@ -65,7 +65,7 @@ namespace PyramidTiffData {
     }
 
     void parseGeometry(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<Point2D>& poly_points,
         const std::string& geometryKey)
     {
@@ -86,7 +86,7 @@ namespace PyramidTiffData {
             return;
 
         // Default to standard Polygon level
-        const jsoncons::json* coordinates = &first_elem;
+        const jsoncons::ojson* coordinates = &first_elem;
 
         // Check an extra level of nesting.
         // If first_elem[0][0] is an array,
@@ -107,7 +107,7 @@ namespace PyramidTiffData {
     }
 
     void parseColor(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::array<uint8_t, 3>& color)
     {
         if (feat.at("properties").contains("classification") &&

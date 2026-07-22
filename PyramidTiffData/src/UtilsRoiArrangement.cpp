@@ -67,7 +67,7 @@ namespace PyramidTiffData {
         const uintmax_t total_bytes = std::filesystem::file_size(json_path);
 
         json_stream_cursor cursor(input_file);
-        json_decoder<json> decoder;
+        json_decoder<ojson> decoder;
 
         std::vector<PyramidTiffData::Roi> rois;
         std::vector<PyramidTiffData::Roi> tissues;
@@ -101,7 +101,7 @@ namespace PyramidTiffData {
             };
 
 
-        auto parseMask = [&, assign_min_max](const json& feature, MaskType maskType) -> void
+        auto parseMask = [&, assign_min_max](const ojson& feature, MaskType maskType) -> void
             {
                 PyramidTiffData::Roi mask;
 
@@ -160,7 +160,7 @@ namespace PyramidTiffData {
                 if (in_features_array)
                 {
                     cursor.read_to(decoder);
-                    const json feature = decoder.get_result();
+                    const ojson feature = decoder.get_result();
 
                     const auto maskType = getMaskType(feature);
                     parseMask(feature, maskType);

@@ -46,16 +46,16 @@ namespace jsoncons {
 }
 
 namespace PyramidTiffData {
-    MaskType getMaskType(const jsoncons::json& feat);
+    MaskType getMaskType(const jsoncons::ojson& feat);
 
     void parseName(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::string& name,
         const std::string& prefix,
         int& counter);
 
     inline void parseName(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<std::string>& names,
         const std::string& prefix,
         int& counter)
@@ -65,13 +65,13 @@ namespace PyramidTiffData {
     }
 
     void parseNameID(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::string& names,
         const std::string& prefix,
         int& counter);
 
     inline void parseNameID(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<std::string>& names,
         const std::string& prefix,
         int& counter)
@@ -81,12 +81,12 @@ namespace PyramidTiffData {
     }
 
     void parseGeometry(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<Point2D>& poly_points,
         const std::string& geometryKey = "geometry");
 
     inline void parseGeometry(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<std::vector<Point2D>>& polygons,
         const std::string& geometryKey = "geometry")
     {
@@ -95,25 +95,25 @@ namespace PyramidTiffData {
     }
 
     inline void parseGeometryNucleus(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<Point2D>& poly_points)
     {
         parseGeometry(feat, poly_points, "nucleusGeometry");
     }
 
     inline void parseGeometryNucleus(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<std::vector<Point2D>>& polygons)
     {
         parseGeometry(feat, polygons, "nucleusGeometry");
     }
 
     void parseColor(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::array<uint8_t, 3>& color);
 
     inline void parseColor(
-        const jsoncons::json& feat,
+        const jsoncons::ojson& feat,
         std::vector<std::array<uint8_t, 3>>& colors)
     {
         std::array<uint8_t, 3>& color = colors.emplace_back();
