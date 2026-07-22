@@ -399,10 +399,12 @@ void PyramidImage::read_level()
                 continue;
 
             const uint32_t idsEnd = idsBegin + pixel_counts[maskID];
-            const std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
+            std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
 
             assert(clusterIDs.size() == pixel_counts[roiID]);
+
+            PyramidTiffData::sortAndUnique(clusterIDs);
 
             Cluster cluster(
                 QString::fromStdString(polygonNames[maskID]),
