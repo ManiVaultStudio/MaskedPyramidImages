@@ -25,10 +25,12 @@ namespace PyramidTiffData {
         if (!classification.contains("name"))
             return MaskType::None;
 
-        if (classification.at("name").as<std::string>() == "ROI")
+        const std::string maskName = classification.at("name").as<std::string>();
+
+        if (maskName == "ROI")
             return MaskType::Roi;
 
-        if (classification.at("name").as<std::string>() == "TISSUE")
+        if (maskName == "TISSUE")
             return MaskType::Tissue;
 
         return MaskType::None;

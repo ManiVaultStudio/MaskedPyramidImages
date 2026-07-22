@@ -75,6 +75,7 @@ namespace PyramidTiffData {
         std::vector<PyramidTiffData::Roi> nuclei;
 
         int unnamed_roi_counter = 0;
+        int unnamed_roi_counter_id = 0;
         int unnamed_tissue_counter = 0;
         int unnamed_cell_counter = 0;
         std::string current_roi_name;
@@ -106,7 +107,8 @@ namespace PyramidTiffData {
 
                 if (maskType == MaskType::Roi) {
                     parseName(feature, mask.name, "ROI", unnamed_roi_counter);
-                    current_roi_name = mask.name;
+                    parseNameID(feature, mask.id, "ROI", unnamed_roi_counter_id);
+                	current_roi_name = mask.name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
                     parseColor(feature, mask.color);
@@ -354,8 +356,7 @@ namespace PyramidTiffData {
 
                 ojson classification(jsoncons::json_object_arg);
 
-                if (maskType == "ROI")
-                    classification["name"] = maskType;
+                classification["name"] = maskType;
 
                 ojson color(json_array_arg);
                 color.push_back(placement.roi.color[0]);
