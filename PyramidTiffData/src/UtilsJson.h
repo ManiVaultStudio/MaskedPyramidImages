@@ -7,7 +7,8 @@
 #include <string>
 #include <vector>
 
-#include <jsoncons/json.hpp>
+#include <jsoncons/basic_json.hpp>
+#include <jsoncons/reflect/reflect_traits_gen.hpp>
 
 namespace jsoncons {
     template<class Json>
