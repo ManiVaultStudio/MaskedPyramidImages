@@ -402,7 +402,7 @@ void PyramidImage::read_level()
             std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
 
-            assert(clusterIDs.size() == pixel_counts[roiID]);
+            assert(clusterIDs.size() == pixel_counts[maskID]);
 
             PyramidTiffData::sortAndUnique(clusterIDs);
 
