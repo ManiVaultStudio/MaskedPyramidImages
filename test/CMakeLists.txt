@@ -9,7 +9,7 @@ target_sources(tifftest
         main.cpp
         ../PyramidTiffData/src/OmeTiffPyramid.cpp
         ../PyramidTiffData/src/PolygonData.cpp
-        ../PyramidTiffData/src/UtilsTransform.cpp
+        ../PyramidTiffData/src/CommonTypesAndTransformations.cpp
         ../PyramidTiffData/src/UtilsRoiArrangement.cpp
         ../PyramidTiffData/src/UtilsJson.cpp
 )

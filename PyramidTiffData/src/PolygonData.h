@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "UtilsTransform.h"
+#include "CommonTypesAndTransformations.h"
 
 namespace PyramidTiffData
 {
