@@ -1,13 +1,14 @@
 #pragma once
 
+#include "CommonTypesAndTransformations.h"
 #include "OmeTiffPyramid.h"
-#include "UtilsTransform.h"
 
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
 #include <utility>
+#include <tuple>
 #include <vector>
 
 // =============================================================================
