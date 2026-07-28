@@ -1,7 +1,7 @@
 #include "OmeTiffPyramid.h"
 #include "PolygonData.h"
 #include "UtilsJson.h"
-#include "UtilsTransform.h"
+#include "CommonTypesAndTransformations.h"
 #include "UtilsRoiArrangement.h"
 
 #include <fstream>

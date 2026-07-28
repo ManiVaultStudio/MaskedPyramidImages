@@ -32,25 +32,25 @@ include(GenerateExportHeader)
 set(PYRAMID_TIFF_HEADERS
     src/PyramidTiffData.h
     src/PyramidInfoAction.h
+    src/OmeTiffPyramid.h
+    src/PolygonData.h
+    src/CommonTypesAndTransformations.h
 )
 
 set(PYRAMID_TIFF_SOURCES
     src/PyramidTiffData.cpp
     src/PyramidInfoAction.cpp
+    src/OmeTiffPyramid.cpp
+    src/PolygonData.cpp
+    src/CommonTypesAndTransformations.cpp
 )
 
 set(PYRAMID_UTILS_HEADERS
-    src/OmeTiffPyramid.h
-    src/PolygonData.h
     src/UtilsJson.h
-    src/UtilsTransform.h
 )
 
 set(PYRAMID_UTILS_SOURCES
-    src/OmeTiffPyramid.cpp
-    src/PolygonData.cpp
     src/UtilsJson.cpp
-    src/UtilsTransform.cpp
 )
 
 set(AUX
