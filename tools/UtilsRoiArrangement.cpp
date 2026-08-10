@@ -199,6 +199,8 @@ namespace PyramidTiffData {
         if (rois.empty())
             throw std::runtime_error("RoiArrangement: compute_roi_layout called with no ROIs");
 
+        const size_t n = rois.size();
+
         // Cell size = the largest ROI bbox (rounded outward), so every ROI fits,
         // even if the source rectangles differ by a pixel or two.
         double max_w = 0.0, max_h = 0.0;
@@ -214,7 +216,7 @@ namespace PyramidTiffData {
             throw std::runtime_error("RoiArrangement: degenerate (zero-size) ROI cell");
 
         std::vector<const Roi*> sorted;
-        sorted.reserve(rois.size());
+        sorted.reserve(n);
 
         // Check if roi_order contains all roi names
         const bool use_user_order = roi_oder && roi_oder->size() == rois.size() &&
@@ -236,7 +238,6 @@ namespace PyramidTiffData {
                 });
         }
         
-        const size_t n = sorted.size();
         layout.grid_cols = std::max<uint32_t>(
             1u, static_cast<uint32_t>(std::llround(std::ceil(std::sqrt(static_cast<double>(n))))));
         layout.grid_rows = static_cast<uint32_t>((n + layout.grid_cols - 1) / layout.grid_cols);
