@@ -5,7 +5,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>  // for memset
-#include <filesystem>
 
 #if defined(__cpp_lib_execution)
 #if defined(__GNUC__)  // both TBB and Qt define emit keyword: undef
