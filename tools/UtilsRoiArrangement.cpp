@@ -333,11 +333,20 @@ namespace PyramidTiffData {
 
         std::vector<std::string> lines;
 
-        std::ifstream file(roi_list_path);
+        try
+        {
+            std::ifstream file(roi_list_path);
 
-        std::string line;
-        while (std::getline(file, line)) {
-            lines.push_back(line);
+            std::string line;
+            while (std::getline(file, line)) {
+                lines.push_back(line);
+            }
+
+        }
+        catch (...)
+        {
+            lines = {};
+            fmt::println("readFile: error while opening file: {}", roi_list_path);
         }
 
         return lines;
