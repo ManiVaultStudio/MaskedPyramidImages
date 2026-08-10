@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.22)
 
 option(MV_MIPYR_USE_OPENMP "Use OpenMP - by default ON" ON)
 option(MV_MIPYR_USE_AVX "Use AVX if available - by default OFF" OFF)
+option(MV_MIPYR_BUILD_TESTS "Build MaskedPyramidImages tests" OFF)
+option(MV_MIPYR_BUILD_TOOLS "Build MaskedPyramidImages tools" OFF)
 
 option(MV_UNITY_BUILD "Combine target source files into batches for faster compilation" OFF)
 
@@ -66,4 +68,11 @@ set(PyramidTiffData_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/PyramidTiffData/src
 
 add_subdirectory(PyramidTiffData)
 add_subdirectory(PyramidTiffLoader)
-add_subdirectory(test)
+
+if(MV_MIPYR_BUILD_TESTS)
+    add_subdirectory(test)
+endif()
+
+if(MV_MIPYR_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()

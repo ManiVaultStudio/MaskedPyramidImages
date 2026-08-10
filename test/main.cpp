@@ -2,7 +2,6 @@
 #include "PolygonData.h"
 #include "UtilsJson.h"
 #include "CommonTypesAndTransformations.h"
-#include "UtilsRoiArrangement.h"
 
 #include <fstream>
 #include <filesystem>
@@ -23,7 +22,7 @@ using namespace jsoncons;
 
 namespace utils
 {
-    static std::filesystem::path change_extension(
+    static std::filesystem::path changeExtension(
         const std::filesystem::path& p,
         const std::string_view ext)
     {
@@ -257,7 +256,7 @@ int main(int argc, char* argv[]) {
     }
 	
     const std::filesystem::path img_path = argv[1];
-    const std::filesystem::path json_path = utils::change_extension(img_path, ".geojson");
+    const std::filesystem::path json_path = utils::changeExtension(img_path, ".geojson");
     fmt::println("Reading file: {}", img_path);
     fmt::println("JSON file: {}", json_path);
 
@@ -266,11 +265,8 @@ int main(int argc, char* argv[]) {
 	try {
         //utils::copy_tiff_file(img_path, json_path);
         //utils::split_json_file(json_path);
-        //utils::extract_roi_json_file(json_path);
+        utils::extract_roi_json_file(json_path);
 
-        PyramidTiffData::repack_rois_to_pyramid(img_path, json_path,
-            utils::insertSuffixExtension(img_path, "new"),
-            utils::insertSuffixExtension(json_path, "new"));
     }
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());
