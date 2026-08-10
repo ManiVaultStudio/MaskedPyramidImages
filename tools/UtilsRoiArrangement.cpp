@@ -70,10 +70,10 @@ namespace PyramidTiffData {
         json_stream_cursor cursor(input_file);
         json_decoder<ojson> decoder;
 
-        std::vector<PyramidTiffData::Roi> rois;
-        std::vector<PyramidTiffData::Roi> tissues;
-        std::vector<PyramidTiffData::Roi> cells;
-        std::vector<PyramidTiffData::Roi> nuclei;
+        std::vector<Roi> rois;
+        std::vector<Roi> tissues;
+        std::vector<Roi> cells;
+        std::vector<Roi> nuclei;
 
         int unnamed_roi_counter = 0;
         int unnamed_roi_counter_id = 0;
@@ -82,7 +82,7 @@ namespace PyramidTiffData {
         std::string current_roi_name;
         bool in_features_array = false;
 
-        auto assign_min_max = [](PyramidTiffData::Roi& mask)
+        auto assign_min_max = [](Roi& mask)
             {
                 double min_x = std::numeric_limits<double>::max();
                 double min_y = std::numeric_limits<double>::max();
@@ -104,7 +104,7 @@ namespace PyramidTiffData {
 
         auto parseMask = [&, assign_min_max](const ojson& feature, MaskType maskType) -> void
             {
-                PyramidTiffData::Roi mask;
+                Roi mask;
 
                 if (maskType == MaskType::Roi) {
                     parseName(feature, mask.name, "ROI", unnamed_roi_counter);
@@ -129,7 +129,7 @@ namespace PyramidTiffData {
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
 
-                    PyramidTiffData::Roi maskNucleus;
+                    Roi maskNucleus;
                     maskNucleus.name = current_roi_name;
                     maskNucleus.id = mask.id;
                     parseGeometryNucleus(feature, maskNucleus.ring);
@@ -195,9 +195,11 @@ namespace PyramidTiffData {
     // Layout
     // =============================================================================
 
-    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues) {
+    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues, const std::vector<std::string>& roi_oder) {
         if (rois.empty())
             throw std::runtime_error("RoiArrangement: compute_roi_layout called with no ROIs");
+
+        const size_t n = rois.size();
 
         // Cell size = the largest ROI bbox (rounded outward), so every ROI fits,
         // even if the source rectangles differ by a pixel or two.
@@ -213,16 +215,29 @@ namespace PyramidTiffData {
         if (layout.cell_width == 0 || layout.cell_height == 0)
             throw std::runtime_error("RoiArrangement: degenerate (zero-size) ROI cell");
 
-        // Raster-scan order: top-to-bottom, then left-to-right, by bbox top-left.
         std::vector<const Roi*> sorted;
-        sorted.reserve(rois.size());
-        for (const auto& r : rois) sorted.push_back(&r);
-        std::sort(sorted.begin(), sorted.end(), [](const Roi* a, const Roi* b) {
-            if (a->y_min != b->y_min) return a->y_min < b->y_min;
-            return a->x_min < b->x_min;
-        });
+        sorted.reserve(n);
 
-        const size_t n = sorted.size();
+        // Check if roi_order contains all roi names
+        const bool use_user_order = roi_oder.size() == n &&
+            std::ranges::all_of(rois.cbegin(), rois.cend(), [&roi_oder](const Roi& roi) -> bool {
+                return std::ranges::find(roi_oder, roi.name) != roi_oder.end();
+            });
+
+        if (use_user_order)
+        {   // Use the user provided order
+            for (const std::string& roi_name : roi_oder)
+                sorted.push_back(&*std::ranges::find(rois, roi_name, &Roi::name));
+        }
+        else
+        {   // Raster-scan order: top-to-bottom, then left-to-right, by bbox top-left.
+            for (const auto& r : rois) sorted.push_back(&r);
+            std::ranges::sort(sorted, [](const Roi* a, const Roi* b) {
+                if (a->y_min != b->y_min) return a->y_min < b->y_min;
+                return a->x_min < b->x_min;
+                });
+        }
+        
         layout.grid_cols = std::max<uint32_t>(
             1u, static_cast<uint32_t>(std::llround(std::ceil(std::sqrt(static_cast<double>(n))))));
         layout.grid_rows = static_cast<uint32_t>((n + layout.grid_cols - 1) / layout.grid_cols);
@@ -249,7 +264,7 @@ namespace PyramidTiffData {
                 roi_order[layout.placements[i].roi.name] = i;
             }
 
-            std::stable_sort(tissues->begin(), tissues->end(), [&](const Roi& a, const Roi& b) {
+            std::ranges::stable_sort(*tissues, [&](const Roi& a, const Roi& b) {
                 const size_t ia = roi_order.contains(a.name) ? roi_order[a.name] : std::numeric_limits<size_t>::max();
                 const size_t ib = roi_order.contains(b.name) ? roi_order[b.name] : std::numeric_limits<size_t>::max();
                 return ia < ib;
@@ -261,7 +276,7 @@ namespace PyramidTiffData {
 
     std::vector<LevelRoiRect> scale_placements_to_level(
         const RoiLayout& layout,
-        const PyramidTiffData::TiffSeries& series,
+        const TiffSeries& series,
         size_t level_idx)
     {
         const auto& lvl = series.pyramid.at(level_idx);
@@ -309,6 +324,36 @@ namespace PyramidTiffData {
         return rects;
     }
 
+    std::vector<std::string> read_roi_order(const std::filesystem::path& roi_list_path)
+    {
+        if (!std::filesystem::exists(roi_list_path))
+        {
+            fmt::println("readFile: file does not exist: {}", roi_list_path);
+            return {};
+        }
+
+        std::vector<std::string> lines;
+
+        try
+        {
+            std::ifstream file(roi_list_path);
+
+            std::string line;
+            while (std::getline(file, line)) {
+                lines.push_back(line);
+            }
+
+        }
+        catch (...)
+        {
+            lines = {};
+            fmt::println("readFile: error while opening file: {}", roi_list_path);
+        }
+
+        return lines;
+    }
+
+
     // =============================================================================
     // Shifted-coordinates JSON
     // =============================================================================
@@ -335,7 +380,7 @@ namespace PyramidTiffData {
             ojson geometry(jsoncons::json_object_arg);
             geometry["type"] = "Polygon";
 
-            std::vector<PyramidTiffData::Point2D> coords;
+            std::vector<Point2D> coords;
             coords.reserve(ring.size());
             for (const auto& pt : ring) {
                 const double nx = pt.x - placement.shift_x;
@@ -537,7 +582,7 @@ namespace PyramidTiffData {
 
                 for (uint32_t ty = 0; ty < canvas_h; ty += tw) {
                     for (uint32_t tx = 0; tx < canvas_w; tx += tw) {
-                        std::fill(tile_f.begin(), tile_f.end(), 0.0f);
+                        std::ranges::fill(tile_f, 0.0f);
                         const uint32_t copy_h = std::min(tw, canvas_h - ty);
                         const uint32_t copy_w = std::min(tw, canvas_w - tx);
                         for (uint32_t y = 0; y < copy_h; ++y) {
@@ -600,7 +645,7 @@ namespace PyramidTiffData {
                 lc.channel_planes.assign(
                     series.channels, std::vector<float>(static_cast<size_t>(canvas_w) * canvas_h, 0.0f));
 
-                const PyramidTiffData::Image src_level = tiff_pyramid.read_level(series_idx, level_idx);
+                const Image src_level = tiff_pyramid.read_level(series_idx, level_idx);
                 if (src_level.channels != series.channels)
                     throw std::runtime_error("RoiArrangement: unexpected channel count reading source level");
 
@@ -660,7 +705,7 @@ namespace PyramidTiffData {
                 });
 
             // "w8" so BigTIFF is used automatically once the file grows past 4GB -
-            // large multi-channel pyramids can exceed that even after compaction.
+            // large multichannel pyramids can exceed that even after compaction.
             TIFF* out = TIFFOpen(out_path.string().c_str(), "w8");
             if (!out)
                 throw std::runtime_error(fmt::format("RoiArrangement: failed to open {} for writing", out_path.string()));
@@ -740,10 +785,11 @@ namespace PyramidTiffData {
         const std::filesystem::path& masks_json_path,
         const std::filesystem::path& out_tiff_path,
         const std::filesystem::path& out_coords_json_path,
+        const std::filesystem::path& roi_order_path,
         const size_t series_idx,
         const uint32_t tile_size)
     {
-        const OmeTiffPyramid tiff_pyramid = PyramidTiffData::OmeTiffPyramid(tiff_pyramid_path);
+        const OmeTiffPyramid tiff_pyramid = OmeTiffPyramid(tiff_pyramid_path);
 
         const TiffSeries& series = tiff_pyramid.series(series_idx);
         if (series.pyramid.empty())
@@ -755,8 +801,10 @@ namespace PyramidTiffData {
         fmt::println("Loading ROIs from {}", masks_json_path);
         auto [rois, tissues, cells, nuclei] = load_rois_from_json(masks_json_path);
 
+        const auto roi_order = read_roi_order(roi_order_path);
+
         fmt::println("Computing new ROIs...");
-        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues);
+        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues, roi_order);
 
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,

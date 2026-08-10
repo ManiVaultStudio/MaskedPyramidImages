@@ -123,7 +123,7 @@ namespace PyramidTiffData {
     // Sorts ROIs raster-scan (top-to-bottom, then left-to-right, by bbox
     // top-left corner) and packs them into a ceil(sqrt(n))-wide grid.
     // Throws if `rois` is empty.
-    [[nodiscard]] RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding = 16, std::vector<Roi>* tissues = nullptr);
+    [[nodiscard]] RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding = 16, std::vector<Roi>* tissues = nullptr, const std::vector<std::string>& roi_oder = {});
 
     // Scales an already-computed full-res layout down to pyramid level `level_idx`
     // using PyramidTiffData::TiffSeries::scaleFactorWidth/Height, clamping source
@@ -132,6 +132,8 @@ namespace PyramidTiffData {
         const RoiLayout& layout, 
         const PyramidTiffData::TiffSeries& series,
         size_t level_idx);
+
+    std::vector<std::string> read_roi_order(const std::filesystem::path& roi_list_path);
 
     // ---------------------------------------------------------------------
     // Output
@@ -156,6 +158,7 @@ namespace PyramidTiffData {
         const std::filesystem::path& masks_json_path,
         const std::filesystem::path& out_tiff_path,
         const std::filesystem::path& out_coords_json_path,
+        const std::filesystem::path& roi_order_path = "",
         const size_t series_idx = 0,
         const uint32_t tile_size = 256);
 
