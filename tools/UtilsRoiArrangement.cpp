@@ -195,7 +195,7 @@ namespace PyramidTiffData {
     // Layout
     // =============================================================================
 
-    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues) {
+    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues, const std::vector<std::string>* roi_oder) {
         if (rois.empty())
             throw std::runtime_error("RoiArrangement: compute_roi_layout called with no ROIs");
 
@@ -213,15 +213,29 @@ namespace PyramidTiffData {
         if (layout.cell_width == 0 || layout.cell_height == 0)
             throw std::runtime_error("RoiArrangement: degenerate (zero-size) ROI cell");
 
-        // Raster-scan order: top-to-bottom, then left-to-right, by bbox top-left.
         std::vector<const Roi*> sorted;
         sorted.reserve(rois.size());
-        for (const auto& r : rois) sorted.push_back(&r);
-        std::sort(sorted.begin(), sorted.end(), [](const Roi* a, const Roi* b) {
-            if (a->y_min != b->y_min) return a->y_min < b->y_min;
-            return a->x_min < b->x_min;
-        });
 
+        // Check if roi_order contains all roi names
+        const bool use_user_order = roi_oder && roi_oder->size() == rois.size() &&
+            std::ranges::all_of(rois, [&](const Roi& roi) -> bool {
+                return std::ranges::find(*roi_oder, roi.name) != roi_oder->end();
+            });
+
+        if (use_user_order)
+        {   // Use the user provided order
+            for (const std::string& roi_name : *roi_oder)
+                sorted.push_back(&*std::ranges::find(rois, roi_name, &Roi::name));
+        }
+        else
+        {   // Raster-scan order: top-to-bottom, then left-to-right, by bbox top-left.
+            for (const auto& r : rois) sorted.push_back(&r);
+            std::ranges::sort(sorted, [](const Roi* a, const Roi* b) {
+                if (a->y_min != b->y_min) return a->y_min < b->y_min;
+                return a->x_min < b->x_min;
+                });
+        }
+        
         const size_t n = sorted.size();
         layout.grid_cols = std::max<uint32_t>(
             1u, static_cast<uint32_t>(std::llround(std::ceil(std::sqrt(static_cast<double>(n))))));
@@ -308,6 +322,27 @@ namespace PyramidTiffData {
         }
         return rects;
     }
+
+    std::vector<std::string> read_roi_order(const std::filesystem::path& roi_list_path)
+    {
+        if (!std::filesystem::exists(roi_list_path))
+        {
+            fmt::println("readFile: file does not exist: {}", roi_list_path);
+            return {};
+        }
+
+        std::vector<std::string> lines;
+
+        std::ifstream file(roi_list_path);
+
+        std::string line;
+        while (std::getline(file, line)) {
+            lines.push_back(line);
+        }
+
+        return lines;
+    }
+
 
     // =============================================================================
     // Shifted-coordinates JSON
@@ -740,10 +775,11 @@ namespace PyramidTiffData {
         const std::filesystem::path& masks_json_path,
         const std::filesystem::path& out_tiff_path,
         const std::filesystem::path& out_coords_json_path,
+        const std::filesystem::path& roi_order_path,
         const size_t series_idx,
         const uint32_t tile_size)
     {
-        const OmeTiffPyramid tiff_pyramid = PyramidTiffData::OmeTiffPyramid(tiff_pyramid_path);
+        const OmeTiffPyramid tiff_pyramid = OmeTiffPyramid(tiff_pyramid_path);
 
         const TiffSeries& series = tiff_pyramid.series(series_idx);
         if (series.pyramid.empty())
@@ -755,8 +791,10 @@ namespace PyramidTiffData {
         fmt::println("Loading ROIs from {}", masks_json_path);
         auto [rois, tissues, cells, nuclei] = load_rois_from_json(masks_json_path);
 
+        const auto roi_order = read_roi_order(roi_order_path);
+
         fmt::println("Computing new ROIs...");
-        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues);
+        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues, &roi_order);
 
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,

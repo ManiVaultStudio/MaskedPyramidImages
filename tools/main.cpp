@@ -2,12 +2,10 @@
 #include "UtilsRoiArrangement.h"
 
 #include <filesystem>
-#include <fstream>
 #include <string>
 #include <string_view>
 
 #include <fmt/base.h>
-#include <fmt/ranges.h>
 #include <fmt/std.h>
 
 namespace utils
@@ -28,28 +26,7 @@ namespace utils
         return p.parent_path() /
             (p.stem().string() + suffix + p.extension().string());
     }
-    
-    static std::vector<std::string> readRoiList(const std::filesystem::path& path)
-    {
-        if (!std::filesystem::exists(path))
-        {
-            fmt::println("readFile: file does not exist: {}", path);
-            return {};
-        }
-
-        std::vector<std::string> lines;
-
-        std::ifstream file(path);
-
-        std::string line;
-        while (std::getline(file, line)) {
-            lines.push_back(line);
-        }
-
-        return lines;
-    }
 }
-
 
 // Reads a tiff file that contains an image pyramid
 // and writes each chanel of the hightest level to disk
@@ -65,24 +42,27 @@ int main(int argc, char* argv[]) {
     const std::filesystem::path roi_list_path = argc == 3 ? argv[2] : "";
     const std::filesystem::path json_path = utils::changeExtension(img_path, ".geojson");
 
-    fmt::println("Reading file: {}", img_path);
-    fmt::println("JSON file: {}", json_path);
-    if (!roi_list_path.empty())
-        fmt::println("ROI list file: {}", roi_list_path);
+    fmt::println("Reading tiff file: {}", img_path);
+    fmt::println("Reading JSON file: {}", json_path);
 
-    constexpr bool VERBOSE = true;
+    if (!roi_list_path.empty())
+        fmt::println("Reading ROI list file: {}", roi_list_path);
+
+    const auto out_tiff_file = utils::insertSuffixExtension(img_path, "new3");
+    const auto out_json_file = utils::insertSuffixExtension(json_path, "new3");
+
+    fmt::println("Output tiff: {}", out_tiff_file);
+    fmt::println("Output json: {}", out_json_file);
 
 	try {
-        const auto roiList = utils::readRoiList(roi_list_path);
-        fmt::print("{}\n", fmt::join(roiList, "\n"));
-
 	    PyramidTiffData::repack_rois_to_pyramid(img_path, json_path,
-            utils::insertSuffixExtension(img_path, "new"),
-            utils::insertSuffixExtension(json_path, "new"));
+            out_tiff_file, out_json_file,
+            roi_list_path);
     }
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());
         return 1;
     }
+
     return 0;
 }
