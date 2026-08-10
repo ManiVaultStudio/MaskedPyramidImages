@@ -195,7 +195,7 @@ namespace PyramidTiffData {
     // Layout
     // =============================================================================
 
-    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues, const std::vector<std::string>* roi_oder) {
+    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues, const std::vector<std::string>& roi_oder) {
         if (rois.empty())
             throw std::runtime_error("RoiArrangement: compute_roi_layout called with no ROIs");
 
@@ -219,14 +219,14 @@ namespace PyramidTiffData {
         sorted.reserve(n);
 
         // Check if roi_order contains all roi names
-        const bool use_user_order = roi_oder && roi_oder->size() == rois.size() &&
-            std::ranges::all_of(rois, [&](const Roi& roi) -> bool {
-                return std::ranges::find(*roi_oder, roi.name) != roi_oder->end();
+        const bool use_user_order = roi_oder.size() == n &&
+            std::ranges::all_of(rois.cbegin(), rois.cend(), [&roi_oder](const Roi& roi) -> bool {
+                return std::ranges::find(roi_oder, roi.name) != roi_oder.end();
             });
 
         if (use_user_order)
         {   // Use the user provided order
-            for (const std::string& roi_name : *roi_oder)
+            for (const std::string& roi_name : roi_oder)
                 sorted.push_back(&*std::ranges::find(rois, roi_name, &Roi::name));
         }
         else
@@ -804,7 +804,7 @@ namespace PyramidTiffData {
         const auto roi_order = read_roi_order(roi_order_path);
 
         fmt::println("Computing new ROIs...");
-        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues, &roi_order);
+        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues, roi_order);
 
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,
