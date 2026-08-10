@@ -70,10 +70,10 @@ namespace PyramidTiffData {
         json_stream_cursor cursor(input_file);
         json_decoder<ojson> decoder;
 
-        std::vector<PyramidTiffData::Roi> rois;
-        std::vector<PyramidTiffData::Roi> tissues;
-        std::vector<PyramidTiffData::Roi> cells;
-        std::vector<PyramidTiffData::Roi> nuclei;
+        std::vector<Roi> rois;
+        std::vector<Roi> tissues;
+        std::vector<Roi> cells;
+        std::vector<Roi> nuclei;
 
         int unnamed_roi_counter = 0;
         int unnamed_roi_counter_id = 0;
@@ -82,7 +82,7 @@ namespace PyramidTiffData {
         std::string current_roi_name;
         bool in_features_array = false;
 
-        auto assign_min_max = [](PyramidTiffData::Roi& mask)
+        auto assign_min_max = [](Roi& mask)
             {
                 double min_x = std::numeric_limits<double>::max();
                 double min_y = std::numeric_limits<double>::max();
@@ -104,7 +104,7 @@ namespace PyramidTiffData {
 
         auto parseMask = [&, assign_min_max](const ojson& feature, MaskType maskType) -> void
             {
-                PyramidTiffData::Roi mask;
+                Roi mask;
 
                 if (maskType == MaskType::Roi) {
                     parseName(feature, mask.name, "ROI", unnamed_roi_counter);
@@ -129,7 +129,7 @@ namespace PyramidTiffData {
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
 
-                    PyramidTiffData::Roi maskNucleus;
+                    Roi maskNucleus;
                     maskNucleus.name = current_roi_name;
                     maskNucleus.id = mask.id;
                     parseGeometryNucleus(feature, maskNucleus.ring);
@@ -249,7 +249,7 @@ namespace PyramidTiffData {
                 roi_order[layout.placements[i].roi.name] = i;
             }
 
-            std::stable_sort(tissues->begin(), tissues->end(), [&](const Roi& a, const Roi& b) {
+            std::ranges::stable_sort(*tissues, [&](const Roi& a, const Roi& b) {
                 const size_t ia = roi_order.contains(a.name) ? roi_order[a.name] : std::numeric_limits<size_t>::max();
                 const size_t ib = roi_order.contains(b.name) ? roi_order[b.name] : std::numeric_limits<size_t>::max();
                 return ia < ib;
@@ -261,7 +261,7 @@ namespace PyramidTiffData {
 
     std::vector<LevelRoiRect> scale_placements_to_level(
         const RoiLayout& layout,
-        const PyramidTiffData::TiffSeries& series,
+        const TiffSeries& series,
         size_t level_idx)
     {
         const auto& lvl = series.pyramid.at(level_idx);
@@ -335,7 +335,7 @@ namespace PyramidTiffData {
             ojson geometry(jsoncons::json_object_arg);
             geometry["type"] = "Polygon";
 
-            std::vector<PyramidTiffData::Point2D> coords;
+            std::vector<Point2D> coords;
             coords.reserve(ring.size());
             for (const auto& pt : ring) {
                 const double nx = pt.x - placement.shift_x;
@@ -537,7 +537,7 @@ namespace PyramidTiffData {
 
                 for (uint32_t ty = 0; ty < canvas_h; ty += tw) {
                     for (uint32_t tx = 0; tx < canvas_w; tx += tw) {
-                        std::fill(tile_f.begin(), tile_f.end(), 0.0f);
+                        std::ranges::fill(tile_f, 0.0f);
                         const uint32_t copy_h = std::min(tw, canvas_h - ty);
                         const uint32_t copy_w = std::min(tw, canvas_w - tx);
                         for (uint32_t y = 0; y < copy_h; ++y) {
@@ -600,7 +600,7 @@ namespace PyramidTiffData {
                 lc.channel_planes.assign(
                     series.channels, std::vector<float>(static_cast<size_t>(canvas_w) * canvas_h, 0.0f));
 
-                const PyramidTiffData::Image src_level = tiff_pyramid.read_level(series_idx, level_idx);
+                const Image src_level = tiff_pyramid.read_level(series_idx, level_idx);
                 if (src_level.channels != series.channels)
                     throw std::runtime_error("RoiArrangement: unexpected channel count reading source level");
 
@@ -660,7 +660,7 @@ namespace PyramidTiffData {
                 });
 
             // "w8" so BigTIFF is used automatically once the file grows past 4GB -
-            // large multi-channel pyramids can exceed that even after compaction.
+            // large multichannel pyramids can exceed that even after compaction.
             TIFF* out = TIFFOpen(out_path.string().c_str(), "w8");
             if (!out)
                 throw std::runtime_error(fmt::format("RoiArrangement: failed to open {} for writing", out_path.string()));
