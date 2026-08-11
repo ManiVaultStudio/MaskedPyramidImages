@@ -113,8 +113,9 @@ namespace PyramidTiffData {
         std::vector<Roi>, // ROI
 		std::vector<Roi>, // TISSUE
 		std::vector<Roi>, // CELL
-		std::vector<Roi>> // NUCLEUS
-	load_rois_from_json(const std::filesystem::path& masks_json_path);
+		std::vector<Roi>, // NUCLEUS
+		std::vector<std::string>> // measurements
+	load_rois_from_json(const std::filesystem::path& masks_json_path, bool keep_measurements = true);
 
     // ---------------------------------------------------------------------
     // Layout

@@ -62,8 +62,9 @@ namespace PyramidTiffData {
         std::vector<Roi>, // ROI
         std::vector<Roi>, // TISSUE
         std::vector<Roi>, // CELL
-        std::vector<Roi>> // NUCLEUS
-	load_rois_from_json(const std::filesystem::path& json_path) {
+        std::vector<Roi>, // NUCLEUS
+        std::vector<std::string>> // measurements
+	load_rois_from_json(const std::filesystem::path& json_path, bool keep_measurements) {
         std::ifstream input_file(json_path);
         const uintmax_t total_bytes = std::filesystem::file_size(json_path);
 
@@ -74,6 +75,7 @@ namespace PyramidTiffData {
         std::vector<Roi> tissues;
         std::vector<Roi> cells;
         std::vector<Roi> nuclei;
+        std::vector<std::string> measurements;
 
         int unnamed_roi_counter = 0;
         int unnamed_roi_counter_id = 0;
@@ -137,6 +139,9 @@ namespace PyramidTiffData {
 
                     cells.push_back(std::move(mask));
                     nuclei.push_back(std::move(maskNucleus));
+
+                    if (keep_measurements)
+                        copyMeasurement(feature, measurements);
                 }
             };
 
@@ -188,7 +193,7 @@ namespace PyramidTiffData {
 
         input_file.close();
 
-        return { rois, tissues, cells, nuclei };
+        return { rois, tissues, cells, nuclei, measurements };
     }
 
     // =============================================================================
@@ -799,7 +804,7 @@ namespace PyramidTiffData {
         }
 
         fmt::println("Loading ROIs from {}", masks_json_path);
-        auto [rois, tissues, cells, nuclei] = load_rois_from_json(masks_json_path);
+        auto [rois, tissues, cells, nuclei, measurements] = load_rois_from_json(masks_json_path);
 
         const auto roi_order = read_roi_order(roi_order_path);
 

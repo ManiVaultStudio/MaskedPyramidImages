@@ -177,6 +177,22 @@ namespace PyramidTiffData {
         }
     }
 
+    void copyMeasurement(
+        const jsoncons::ojson& feat,
+        std::vector<std::string>& measurements)
+    {
+        if (!feat.contains("properties") ||
+            !feat.at("properties").contains("measurements"))
+        {
+            fmt::println("parseMeasurementMeans: no measurement");
+            return;
+        }
+
+        std::ostringstream oss;
+        feat.at("properties").at("measurements").dump(oss);
+        measurements.push_back(oss.str());
+    }
+
     void parseColor(
         const jsoncons::ojson& feat,
         std::array<uint8_t, 3>& color)

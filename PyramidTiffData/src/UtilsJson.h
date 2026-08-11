@@ -118,6 +118,10 @@ namespace PyramidTiffData {
         std::vector<float>& means,
         const std::string& structure);
 
+    void copyMeasurement(
+        const jsoncons::ojson& feat,
+        std::vector<std::string>& measurements);
+
     void parseColor(
         const jsoncons::ojson& feat,
         std::array<uint8_t, 3>& color);
