@@ -1,5 +1,7 @@
 #include "UtilsJson.h"
 
+#include <unordered_set>
+
 #include <fmt/format.h>
 
 namespace PyramidTiffData {
@@ -104,6 +106,75 @@ namespace PyramidTiffData {
             poly_points.push_back(coords.as<Point2D>());
         }
         
+    }
+
+    void parseMeasurementNames(
+        const jsoncons::ojson& feat,
+        std::vector<std::string>& names)
+    {
+        if (!names.empty())
+            return;
+
+        if (!feat.contains("properties") ||
+            !feat.at("properties").contains("measurements"))
+            return;
+
+        const auto& measurements = feat.at("properties").at("measurements");
+
+        const std::string prefix = "Nucleus: ";
+        const std::string suffix = ": Mean";
+
+        std::unordered_set<std::string> seen_names;
+
+        for (const auto& measurement : measurements.object_range())
+        {
+            const std::string& key = measurement.key();
+
+            if (!key.starts_with(prefix))
+                continue;
+
+            if (!key.ends_with(suffix))
+                continue;
+
+            const std::string name = key.substr(
+                prefix.size(),
+                key.size() - prefix.size() - suffix.size());
+
+            if (seen_names.contains(name))
+                continue;
+
+            names.push_back(name);
+        }
+    }
+
+    void parseMeasurementMeans(
+        const jsoncons::ojson& feat,
+        std::vector<float>& means,
+        const std::string& structure)
+    {
+        if (!feat.contains("properties") ||
+            !feat.at("properties").contains("measurements"))
+        {
+            fmt::println("parseMeasurementMeans: no measurement");
+            return;
+        }
+
+        const auto& measurements = feat.at("properties").at("measurements");
+
+        const std::string suffix = ": Mean";
+
+        for (const auto& measurement : measurements.object_range())
+        {
+            const std::string& key = measurement.key();
+
+            if (!key.starts_with(structure))
+                continue;
+
+            if (!key.ends_with(suffix))
+                continue;
+
+            means.push_back(measurement.value().as<float>());
+        }
     }
 
     void parseColor(

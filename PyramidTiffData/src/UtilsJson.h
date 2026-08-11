@@ -109,6 +109,15 @@ namespace PyramidTiffData {
         parseGeometry(feat, polygons, "nucleusGeometry");
     }
 
+    void parseMeasurementNames(
+        const jsoncons::ojson& feat,
+        std::vector<std::string>& names);
+
+    void parseMeasurementMeans(
+        const jsoncons::ojson& feat,
+        std::vector<float>& means,
+        const std::string& structure);
+
     void parseColor(
         const jsoncons::ojson& feat,
         std::array<uint8_t, 3>& color);
