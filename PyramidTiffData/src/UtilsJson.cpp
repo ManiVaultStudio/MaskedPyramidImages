@@ -28,7 +28,7 @@ namespace PyramidTiffData {
         std::string objectType = props.at("objectType").as<std::string>();
         transformToUpper(objectType);
 
-        if (props.at("objectType").as<std::string>() == getMaskString(MaskType::Cell))
+        if (objectType == getMaskString(MaskType::Cell))
             return MaskType::Cell;
 
         if (!props.contains("classification"))
