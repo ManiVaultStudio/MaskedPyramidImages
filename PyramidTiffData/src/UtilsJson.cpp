@@ -1,10 +1,19 @@
 #include "UtilsJson.h"
 
+#include "CommonTypesAndTransformations.h"
+
+#include <cctype>
 #include <unordered_set>
 
 #include <fmt/format.h>
 
 namespace PyramidTiffData {
+
+    static void transformToUpper(std::string& str)
+    {
+        std::ranges::transform(str, str.begin(),
+            [](const unsigned char c) { return std::toupper(c); });
+    }
 
     MaskType getMaskType(const jsoncons::ojson& feat)
     {
@@ -16,7 +25,10 @@ namespace PyramidTiffData {
         if (!props.contains("objectType"))
             return MaskType::None;
 
-        if (props.at("objectType").as<std::string>() == "cell")
+        std::string objectType = props.at("objectType").as<std::string>();
+        transformToUpper(objectType);
+
+        if (props.at("objectType").as<std::string>() == getMaskString(MaskType::Cell))
             return MaskType::Cell;
 
         if (!props.contains("classification"))
@@ -27,12 +39,13 @@ namespace PyramidTiffData {
         if (!classification.contains("name"))
             return MaskType::None;
 
-        const std::string maskName = classification.at("name").as<std::string>();
+        std::string maskName = classification.at("name").as<std::string>();
+        transformToUpper(maskName);
 
-        if (maskName == "ROI")
+        if (maskName == getMaskString(MaskType::Roi))
             return MaskType::Roi;
 
-        if (maskName == "TISSUE")
+        if (maskName == getMaskString(MaskType::Tissue))
             return MaskType::Tissue;
 
         return MaskType::None;
