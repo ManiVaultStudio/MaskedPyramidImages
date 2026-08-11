@@ -108,25 +108,29 @@ namespace PyramidTiffData {
             {
                 Roi mask;
 
-                if (maskType == MaskType::Roi) {
-                    parseName(feature, mask.name, "ROI", unnamed_roi_counter);
-                    parseNameID(feature, mask.id, "ROI", unnamed_roi_counter_id);
-                	current_roi_name = mask.name;
+                switch (maskType)
+                {
+                case MaskType::Roi: {
+                    parseName(feature, mask.name, getMaskString(maskType), unnamed_roi_counter);
+                    parseNameID(feature, mask.id, getMaskString(maskType), unnamed_roi_counter_id);
+                    current_roi_name = mask.name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
                     parseColor(feature, mask.color);
                     rois.push_back(std::move(mask));
+                    break;
                 }
-                else if (maskType == MaskType::Tissue) {
-                    parseNameID(feature, mask.id, "TISSUE", unnamed_tissue_counter);
+                case MaskType::Tissue: {
+                    parseNameID(feature, mask.id, getMaskString(maskType), unnamed_tissue_counter);
                     mask.name = current_roi_name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
                     parseColor(feature, mask.color);
                     tissues.push_back(std::move(mask));
+                    break;
                 }
-                else if (maskType == MaskType::Cell) {
-                    parseNameID(feature, mask.id, "CELL", unnamed_cell_counter);
+                case MaskType::Cell: {
+                    parseNameID(feature, mask.id, getMaskString(maskType), unnamed_cell_counter);
                     mask.name = current_roi_name;
                     parseGeometry(feature, mask.ring);
                     assign_min_max(mask);
@@ -154,7 +158,10 @@ namespace PyramidTiffData {
 
                         copyMeasurement(feature, measurements[current_roi_name]);
                     }
-                        
+                    break;
+                }
+                case MaskType::Nucleus: break;
+                case MaskType::None: break;
                 }
             };
 
