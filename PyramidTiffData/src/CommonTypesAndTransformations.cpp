@@ -39,6 +39,20 @@ namespace PyramidTiffData {
         v.erase(last, v.end());
     }
 
+    std::string getMaskString(const MaskType maskType)
+    {
+        switch (maskType)
+        {
+        case MaskType::Roi: return "ROI";
+        case MaskType::Tissue: return "TISSUE";
+        case MaskType::Cell: return "CELL";
+        case MaskType::Nucleus: return "NUCLEUS";
+        case MaskType::None: return "NONE";
+        }
+
+        return "None";
+    }
+
     std::vector<uint32_t> convertSelectionToDownscaled(
         const std::vector<uint32_t>& selectedIndices,
         const uint32_t originalWidth, const uint32_t originalHeight,

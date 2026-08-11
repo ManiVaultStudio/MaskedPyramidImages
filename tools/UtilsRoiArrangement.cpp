@@ -393,7 +393,7 @@ namespace PyramidTiffData {
             feat[feat_name] = std::move(geometry);
         };
 
-    	auto parse_feature = [&encoder, parse_geometry](const std::string& maskType, const std::string& maskID, 
+    	auto parse_feature = [&encoder, parse_geometry](const MaskType maskType, const std::string& maskID,
             const RoiPlacement& placement, const std::vector<Point2D>& ring_geom, const std::vector<Point2D>* ring_nucleus = nullptr)
 	    {
             ojson feat(jsoncons::json_object_arg);
@@ -407,7 +407,7 @@ namespace PyramidTiffData {
                 parse_geometry(feat, placement, *ring_nucleus, "nucleusGeometry");
 
             // Properties
-			if (maskType == "ROI" || maskType == "TISSUE")
+			if (maskType == MaskType::Roi || maskType == MaskType::Tissue)
             {
                 ojson properties(jsoncons::json_object_arg);
                 properties["objectType"] = "annotation";
@@ -415,7 +415,7 @@ namespace PyramidTiffData {
 
                 ojson classification(jsoncons::json_object_arg);
 
-                classification["name"] = maskType;
+                classification["name"] = getMaskString(maskType);
 
                 ojson color(json_array_arg);
                 color.push_back(placement.roi.color[0]);
@@ -428,7 +428,7 @@ namespace PyramidTiffData {
 
                 feat["properties"] = std::move(properties);
             }
-            else
+            else if (maskType == MaskType::Cell)
             {
                 ojson properties(jsoncons::json_object_arg);
                 properties["objectType"] = "cell";
@@ -442,12 +442,12 @@ namespace PyramidTiffData {
         for (std::size_t roi_counter = 0; roi_counter < layout.placements.size(); ++roi_counter) {
             const auto& placement = layout.placements[roi_counter];
 
-            parse_feature("ROI", placement.roi.id, placement, placement.roi.ring);
+            parse_feature(MaskType::Roi, placement.roi.id, placement, placement.roi.ring);
 
             if (tissues)
             {
                 const auto& tissue = tissues->at(roi_counter);
-                parse_feature("TISSUE", tissue.id, placement, tissue.ring);
+                parse_feature(MaskType::Tissue, tissue.id, placement, tissue.ring);
             }
 
             if (cells && nuclei)
@@ -459,7 +459,7 @@ namespace PyramidTiffData {
                     const auto& nucleus = nuclei->at(i);
                     if (cell.name != roi_name) continue;
 
-                    parse_feature("CELL", cell.id, placement, cell.ring, &(nucleus.ring));
+                    parse_feature(MaskType::Cell, cell.id, placement, cell.ring, &(nucleus.ring));
                 }
 
             }
