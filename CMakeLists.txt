@@ -7,6 +7,11 @@ option(MV_MIPYR_BUILD_TOOLS "Build MaskedPyramidImages tools" OFF)
 
 option(MV_UNITY_BUILD "Combine target source files into batches for faster compilation" OFF)
 
+if(MV_MIPYR_BUILD_TESTS)
+    list(APPEND VCPKG_MANIFEST_FEATURES "tools")
+    message(STATUS "Adding feature to vcpkg: tools")
+endif()
+
 # -----------------------------------------------------------------------------
 # MaskedPyramidImages Plugins
 # -----------------------------------------------------------------------------

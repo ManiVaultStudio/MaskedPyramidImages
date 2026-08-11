@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace PyramidTiffData {
@@ -25,8 +26,11 @@ namespace PyramidTiffData {
         Roi,
         Tissue,
         Cell,
+        Nucleus,    // subset of cell, usually handled as part of cell
         None,
     };
+
+    std::string getMaskString(const MaskType maskType);
 
     void sortAndUnique(std::vector<uint32_t>& v);
 

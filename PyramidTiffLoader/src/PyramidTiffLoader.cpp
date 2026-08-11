@@ -57,6 +57,16 @@ PyramidTiffLoaderDialog::PyramidTiffLoaderDialog(QWidget* parent, PyramidTiffLoa
         candidateFileExists = QFileInfo::exists(jsonFileNameCandidate);
     }
 
+    if (!candidateFileExists) {
+        jsonFileNameCandidate = fi.dir().filePath(fi.baseName() + ".json");
+        candidateFileExists = QFileInfo::exists(jsonFileNameCandidate);
+    }
+
+    if (!candidateFileExists) {
+        jsonFileNameCandidate = fi.dir().filePath(fi.baseName() + ".geojson");
+        candidateFileExists = QFileInfo::exists(jsonFileNameCandidate);
+    }
+
     setDatasetName(fi.baseName());
     setTiffFilePath(filePath);
     setJsonFilePath(candidateFileExists ? jsonFileNameCandidate : "");

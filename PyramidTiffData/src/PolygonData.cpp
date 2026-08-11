@@ -68,10 +68,10 @@ namespace PyramidTiffData {
         _img_width = img_width;
         _img_height = img_height;
 
-        parse_mask_annotations(path);
+        parseMaskAnnotations(path);
     }
 
-    void PolygonData::parse_mask_annotations(const std::filesystem::path& path)
+    void PolygonData::parseMaskAnnotations(const std::filesystem::path& path)
     {
         std::ifstream f(path);
         if (!f.is_open()) {
@@ -139,6 +139,12 @@ namespace PyramidTiffData {
                         parseNameID(feature, _names_cell, "CELL", unnamed_cell_counter);
                         parseGeometry(feature, _polygons_cell);
                         parseGeometryNucleus(feature, _polygons_nucleus);
+
+                        parseMeasurementNames(feature, _names_measurements);
+                        parseMeasurementMeans(feature, _means_nucleus, "Nucleus");
+                        parseMeasurementMeans(feature, _means_cytoplasm, "Cytoplasm");
+                        parseMeasurementMeans(feature, _means_membrane, "Membrane");
+                        parseMeasurementMeans(feature, _means_cell, "Cell");
                     }
                     else
                     {
@@ -181,6 +187,10 @@ namespace PyramidTiffData {
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
+        assert(_means_nucleus.size() % _names_measurements.size() == 0);
+        assert(_means_nucleus.size() == _means_cytoplasm.size());
+        assert(_means_cytoplasm.size() == _means_membrane.size());
+        assert(_means_membrane.size() == _means_cell.size());
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
@@ -248,7 +258,7 @@ namespace PyramidTiffData {
         return { indices , pixelCounts };
     }
 
-    void PolygonData::print_info(const size_t max_polygons_to_show ) const
+    void PolygonData::printInfo(const size_t max_polygons_to_show ) const
     {
         fmt::print("PolygonData Information");
     	fmt::print("Image Dimensions: {}x{}\n", _img_width, _img_height);
