@@ -26,9 +26,29 @@ namespace utils
         const std::filesystem::path& p,
         const std::string_view ext)
     {
-        auto result = p;
-        result.replace_extension(ext);
-        return result;
+        std::string filename = p.filename().string();
+
+        // Find the first dot (skipping index 0 to handle hidden files like .gitignore)
+        size_t first_dot = filename.find('.', 1);
+
+        if (first_dot == std::string::npos) {
+            // If there's no extension at all, use standard behavior
+            auto result = p;
+            result.replace_extension(ext);
+            return result;
+        }
+
+        // Extract the stem (everything before the first dot)
+        std::string stem = filename.substr(0, first_dot);
+
+        // Prepare the new extension: ensure it starts with a dot if not empty
+        std::string formatted_ext(ext);
+        if (!formatted_ext.empty() && formatted_ext[0] != '.') {
+            formatted_ext.insert(0, ".");
+        }
+
+        // Reconstruct the path: Parent Dir + Stem + New Extension
+        return p.parent_path() / (stem + formatted_ext);
     }
 
     static std::filesystem::path insertSuffixExtension(
