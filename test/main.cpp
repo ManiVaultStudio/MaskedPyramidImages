@@ -234,7 +234,7 @@ namespace utils
 
         // read polygon mask
         const PyramidTiffData::PolygonData jsonReader(json_path, tiffReader.series().width, tiffReader.series().height);
-        jsonReader.print_info();
+        jsonReader.printInfo();
 
         // write images
         constexpr size_t current_series = 0;

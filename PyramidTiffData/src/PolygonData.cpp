@@ -68,10 +68,10 @@ namespace PyramidTiffData {
         _img_width = img_width;
         _img_height = img_height;
 
-        parse_mask_annotations(path);
+        parseMaskAnnotations(path);
     }
 
-    void PolygonData::parse_mask_annotations(const std::filesystem::path& path)
+    void PolygonData::parseMaskAnnotations(const std::filesystem::path& path)
     {
         std::ifstream f(path);
         if (!f.is_open()) {
@@ -248,7 +248,7 @@ namespace PyramidTiffData {
         return { indices , pixelCounts };
     }
 
-    void PolygonData::print_info(const size_t max_polygons_to_show ) const
+    void PolygonData::printInfo(const size_t max_polygons_to_show ) const
     {
         fmt::print("PolygonData Information");
     	fmt::print("Image Dimensions: {}x{}\n", _img_width, _img_height);

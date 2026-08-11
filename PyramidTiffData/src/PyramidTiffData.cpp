@@ -52,7 +52,7 @@ bool PyramidImageData::scan(const QString& tiffFilePath, const QString& jsonFile
 
     try {
         _polygonMasks.init(jsonFilePath.toStdString(), _tiffPyramid.series().width, _tiffPyramid.series().height);
-        _polygonMasks.print_info();
+        _polygonMasks.printInfo();
     }
     catch (const std::runtime_error& err) {
         fmt::print("PyramidImageData::scan: cannot parse json: {}", err.what());

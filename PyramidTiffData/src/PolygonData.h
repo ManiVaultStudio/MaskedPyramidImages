@@ -21,7 +21,7 @@ namespace PyramidTiffData
         PolygonData(PolygonData&&) = delete;
         PolygonData& operator=(PolygonData&&) = delete;
         
-        void print_info(const size_t max_polygons_to_show = 5) const;
+        void printInfo(const size_t max_polygons_to_show = 5) const;
 
         void init(const std::filesystem::path& path, const uint32_t img_width, const uint32_t img_height);
 
@@ -66,7 +66,7 @@ namespace PyramidTiffData
         }
 
     private:
-        void parse_mask_annotations(const std::filesystem::path& path);
+        void parseMaskAnnotations(const std::filesystem::path& path);
 
         [[nodiscard]] static std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> downscaleMask(
             const double scaleFactorWidth, const double scaleFactorHeight,
