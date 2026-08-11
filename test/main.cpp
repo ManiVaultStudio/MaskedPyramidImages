@@ -35,8 +35,22 @@ namespace utils
         const std::filesystem::path& p,
         const std::string& suffix)
     {
-        return p.parent_path() /
-            (p.stem().string() + suffix + p.extension().string());
+        std::string filename = p.filename().string();
+
+        // Find the first dot. 
+        // We start searching at index 1 to avoid treating hidden files 
+        // (e.g., .gitignore) as having an extension at the start.
+        size_t first_dot = filename.find('.', 1);
+
+        if (first_dot == std::string::npos) {
+            // No extension found, just append to the end
+            return p.parent_path() / (filename + suffix);
+        }
+
+        std::string stem = filename.substr(0, first_dot);
+        std::string extension = filename.substr(first_dot);
+
+        return p.parent_path() / (stem + suffix + extension);
     }
 
     static void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath, int file_number) {
@@ -264,8 +278,8 @@ int main(int argc, char* argv[]) {
 
 	try {
         //utils::copy_tiff_file(img_path, json_path);
-        //utils::split_json_file(json_path);
-        utils::extract_roi_json_file(json_path);
+        utils::split_json_file(json_path);
+        //utils::extract_roi_json_file(json_path);
 
     }
     catch (const std::exception& e) {

@@ -16,8 +16,17 @@
       ]
     }
   ],
+  "features": {
+    "tools": {
+        "description": "Build extra tools",
+        "dependencies": [
+            "cli11"
+        ]
+    }
+  },
   "builtin-baseline":"cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3",
   "overrides": [
+    { "name": "cli11", "version": "2.6.2#0" },
     { "name": "jsoncons", "version": "1.8.1#0" },
     { "name": "libdeflate", "version": "1.25#0" },
     { "name": "libjpeg-turbo", "version": "3.1.4.1#0" },

@@ -8,6 +8,8 @@
 #include <fmt/base.h>
 #include <fmt/std.h>
 
+#include <CLI/CLI.hpp>
+
 namespace utils
 {
     static std::filesystem::path changeExtension(
@@ -23,41 +25,65 @@ namespace utils
         const std::filesystem::path& p,
         const std::string& suffix)
     {
-        return p.parent_path() /
-            (p.stem().string() + suffix + p.extension().string());
+        std::string filename = p.filename().string();
+
+        // Find the first dot. 
+        // We start searching at index 1 to avoid treating hidden files 
+        // (e.g., .gitignore) as having an extension at the start.
+        size_t first_dot = filename.find('.', 1);
+
+        if (first_dot == std::string::npos) {
+            // No extension found, just append to the end
+            return p.parent_path() / (filename + suffix);
+        }
+
+        std::string stem = filename.substr(0, first_dot);
+        std::string extension = filename.substr(first_dot);
+
+        return p.parent_path() / (stem + suffix + extension);
     }
 }
 
 // Reads a tiff file that contains an image pyramid
 // and writes each chanel of the hightest level to disk
 int main(int argc, char* argv[]) {
+    CLI::App app{"Reorder and stack pyramid tiff file", "pyramidstackmerge" };
 
-    if (argc !=2 && argc != 3) {
-        fmt::println("Usage:\n    pyramidstackmerge <path_to_tiff_file>");
-        fmt::println("            pyramidstackmerge <path_to_tiff_file> <path_to_roi_list>");
-        return 1;
-    }
-	
-    const std::filesystem::path img_path = argv[1];
-    const std::filesystem::path roi_list_path = argc == 3 ? argv[2] : "";
-    const std::filesystem::path json_path = utils::changeExtension(img_path, ".geojson");
+    const std::string usage_msg = "Usage: " + app.get_name() + " -i <tiff-file>";
+    app.usage(usage_msg);
 
-    fmt::println("Reading tiff file: {}", img_path);
-    fmt::println("Reading JSON file: {}", json_path);
+    std::filesystem::path in_img_path = "";
+    std::filesystem::path in_roi_list_path = "";
+    std::string suffix = "_reordered";
 
-    if (!roi_list_path.empty())
-        fmt::println("Reading ROI list file: {}", roi_list_path);
+    app.add_option("-i,--input", in_img_path, "The input tiff image")
+        ->required()
+        ->check(CLI::ExistingFile)
+        ->type_name("PATH");
+    app.add_option("-o,--order", in_roi_list_path, "User defined order or ROIs")
+        ->check(CLI::ExistingFile)
+        ->type_name("PATH");
+    app.add_option("-s,--suffix", suffix, "Suffix for the newly generated files");
 
-    const auto out_tiff_file = utils::insertSuffixExtension(img_path, "new3");
-    const auto out_json_file = utils::insertSuffixExtension(json_path, "new3");
+    CLI11_PARSE(app, argc, argv);
 
-    fmt::println("Output tiff: {}", out_tiff_file);
-    fmt::println("Output json: {}", out_json_file);
+    const auto in_json_path = utils::changeExtension(in_img_path, ".geojson");
+    const auto out_tiff_path = utils::insertSuffixExtension(in_img_path, suffix);
+    const auto out_json_path = utils::insertSuffixExtension(in_json_path, suffix);
+
+    fmt::println("Input tiff file: {}", in_img_path);
+    fmt::println("Input JSON file: {}", in_json_path);
+
+    if (!in_roi_list_path.empty())
+       fmt::println("Input ROI list file: {}", in_roi_list_path);
+
+    fmt::println("Output tiff: {}", out_tiff_path);
+    fmt::println("Output json: {}", out_json_path);
 
 	try {
-	    PyramidTiffData::repack_rois_to_pyramid(img_path, json_path,
-            out_tiff_file, out_json_file,
-            roi_list_path);
+	    PyramidTiffData::repack_rois_to_pyramid(in_img_path, in_json_path,
+            out_tiff_path, out_json_path,
+            in_roi_list_path);
     }
     catch (const std::exception& e) {
         fmt::println("Error: {}", e.what());
