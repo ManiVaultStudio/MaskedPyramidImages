@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <tuple>
 #include <vector>
@@ -112,9 +113,9 @@ namespace PyramidTiffData {
     [[nodiscard]] std::tuple<
         std::vector<Roi>, // ROI
 		std::vector<Roi>, // TISSUE
-		std::vector<Roi>, // CELL
-		std::vector<Roi>, // NUCLEUS
-		std::vector<std::string>> // measurements
+        std::unordered_map<std::string, std::vector<Roi>>, // CELL
+        std::unordered_map<std::string, std::vector<Roi>>, // NUCLEUS
+		std::unordered_map<std::string, std::vector<std::string>> > // measurements
 	load_rois_from_json(const std::filesystem::path& masks_json_path, bool keep_measurements = true);
 
     // ---------------------------------------------------------------------
@@ -124,7 +125,8 @@ namespace PyramidTiffData {
     // Sorts ROIs raster-scan (top-to-bottom, then left-to-right, by bbox
     // top-left corner) and packs them into a ceil(sqrt(n))-wide grid.
     // Throws if `rois` is empty.
-    [[nodiscard]] RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding = 16, std::vector<Roi>* tissues = nullptr, const std::vector<std::string>& roi_oder = {});
+    [[nodiscard]] RoiLayout compute_roi_layout(const std::vector<Roi>& rois, std::vector<Roi>& tissues, 
+        uint32_t padding = 16, const std::vector<std::string>& roi_oder = {});
 
     // Scales an already-computed full-res layout down to pyramid level `level_idx`
     // using PyramidTiffData::TiffSeries::scaleFactorWidth/Height, clamping source
@@ -142,8 +144,9 @@ namespace PyramidTiffData {
 
     // Writes the shifted ROI coordinates for every pyramid level to JSON.
     void save_shifted_coordinates_json(
-        const RoiLayout& layout, const std::vector<Roi>* tissues,
-        const std::vector<Roi>* cells, const std::vector<Roi>* nuclei,
+        const RoiLayout& layout, const std::vector<Roi>& tissues,
+        const std::unordered_map<std::string, std::vector<Roi>>& cells, const std::unordered_map<std::string, std::vector<Roi>>& nuclei,
+        const std::unordered_map<std::string, std::vector<std::string>>& measurements,
         const std::filesystem::path& out_json_path);
 
     // Full pipeline: for every pyramid level of `series_idx`, reads the level,

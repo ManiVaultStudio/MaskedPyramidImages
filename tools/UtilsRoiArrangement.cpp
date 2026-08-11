@@ -61,9 +61,9 @@ namespace PyramidTiffData {
     std::tuple<
         std::vector<Roi>, // ROI
         std::vector<Roi>, // TISSUE
-        std::vector<Roi>, // CELL
-        std::vector<Roi>, // NUCLEUS
-        std::vector<std::string>> // measurements
+        std::unordered_map<std::string, std::vector<Roi>>, // CELL
+        std::unordered_map<std::string, std::vector<Roi>>, // NUCLEUS
+        std::unordered_map<std::string, std::vector<std::string>> > // measurements
 	load_rois_from_json(const std::filesystem::path& json_path, bool keep_measurements) {
         std::ifstream input_file(json_path);
         const uintmax_t total_bytes = std::filesystem::file_size(json_path);
@@ -73,9 +73,9 @@ namespace PyramidTiffData {
 
         std::vector<Roi> rois;
         std::vector<Roi> tissues;
-        std::vector<Roi> cells;
-        std::vector<Roi> nuclei;
-        std::vector<std::string> measurements;
+        std::unordered_map<std::string, std::vector<Roi>> cells;
+        std::unordered_map<std::string, std::vector<Roi>> nuclei;
+        std::unordered_map<std::string, std::vector<std::string>> measurements;
 
         int unnamed_roi_counter = 0;
         int unnamed_roi_counter_id = 0;
@@ -137,11 +137,24 @@ namespace PyramidTiffData {
                     parseGeometryNucleus(feature, maskNucleus.ring);
                     assign_min_max(maskNucleus);
 
-                    cells.push_back(std::move(mask));
-                    nuclei.push_back(std::move(maskNucleus));
+                    if (!cells.contains(current_roi_name))
+                        cells.emplace(current_roi_name, std::vector<Roi>{});
+
+                    cells[current_roi_name].push_back(std::move(mask));
+
+                    if (!nuclei.contains(current_roi_name))
+                        nuclei.emplace(current_roi_name, std::vector<Roi>{});
+
+                    nuclei[current_roi_name].push_back(std::move(maskNucleus));
 
                     if (keep_measurements)
-                        copyMeasurement(feature, measurements);
+                    {
+                        if (!measurements.contains(current_roi_name))
+                            measurements.emplace(current_roi_name, std::vector<std::string>{});
+
+                        copyMeasurement(feature, measurements[current_roi_name]);
+                    }
+                        
                 }
             };
 
@@ -200,11 +213,11 @@ namespace PyramidTiffData {
     // Layout
     // =============================================================================
 
-    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, uint32_t padding, std::vector<Roi>* tissues, const std::vector<std::string>& roi_oder) {
+    RoiLayout compute_roi_layout(const std::vector<Roi>& rois, std::vector<Roi>& tissues, uint32_t padding, const std::vector<std::string>& roi_oder) {
         if (rois.empty())
             throw std::runtime_error("RoiArrangement: compute_roi_layout called with no ROIs");
 
-        const size_t n = rois.size();
+        const size_t numROIs = rois.size();
 
         // Cell size = the largest ROI bbox (rounded outward), so every ROI fits,
         // even if the source rectangles differ by a pixel or two.
@@ -221,10 +234,10 @@ namespace PyramidTiffData {
             throw std::runtime_error("RoiArrangement: degenerate (zero-size) ROI cell");
 
         std::vector<const Roi*> sorted;
-        sorted.reserve(n);
+        sorted.reserve(numROIs);
 
         // Check if roi_order contains all roi names
-        const bool use_user_order = roi_oder.size() == n &&
+        const bool use_user_order = roi_oder.size() == numROIs &&
             std::ranges::all_of(rois.cbegin(), rois.cend(), [&roi_oder](const Roi& roi) -> bool {
                 return std::ranges::find(roi_oder, roi.name) != roi_oder.end();
             });
@@ -244,12 +257,12 @@ namespace PyramidTiffData {
         }
         
         layout.grid_cols = std::max<uint32_t>(
-            1u, static_cast<uint32_t>(std::llround(std::ceil(std::sqrt(static_cast<double>(n))))));
-        layout.grid_rows = static_cast<uint32_t>((n + layout.grid_cols - 1) / layout.grid_cols);
+            1u, static_cast<uint32_t>(std::llround(std::ceil(std::sqrt(static_cast<double>(numROIs))))));
+        layout.grid_rows = static_cast<uint32_t>((numROIs + layout.grid_cols - 1) / layout.grid_cols);
         layout.padding = padding;
 
-        layout.placements.reserve(n);
-        for (size_t i = 0; i < n; ++i) {
+        layout.placements.reserve(numROIs);
+        for (size_t i = 0; i < numROIs; ++i) {
             RoiPlacement& p = layout.placements.emplace_back();
             p.roi = *sorted[i];
             p.raster_index = i;
@@ -261,15 +274,15 @@ namespace PyramidTiffData {
             p.shift_y = p.roi.y_min - p.dest_y;
         }
 
-        if (tissues)
+        if (tissues.size() == numROIs)
         {
             std::unordered_map<std::string, size_t> roi_order;
-            roi_order.reserve(n);
-            for (size_t i = 0; i < n; ++i) {
+            roi_order.reserve(numROIs);
+            for (size_t i = 0; i < numROIs; ++i) {
                 roi_order[layout.placements[i].roi.name] = i;
             }
 
-            std::ranges::stable_sort(*tissues, [&](const Roi& a, const Roi& b) {
+            std::ranges::stable_sort(tissues, [&](const Roi& a, const Roi& b) {
                 const size_t ia = roi_order.contains(a.name) ? roi_order[a.name] : std::numeric_limits<size_t>::max();
                 const size_t ib = roi_order.contains(b.name) ? roi_order[b.name] : std::numeric_limits<size_t>::max();
                 return ia < ib;
@@ -364,12 +377,15 @@ namespace PyramidTiffData {
     // =============================================================================
 
     void save_shifted_coordinates_json(
-        const RoiLayout& layout, const std::vector<Roi>* tissues,
-        const std::vector<Roi>* cells, const std::vector<Roi>* nuclei,
+        const RoiLayout& layout, const std::vector<Roi>& tissues,
+        const std::unordered_map<std::string, std::vector<Roi>>& cells, const std::unordered_map<std::string, std::vector<Roi>>& nuclei,
+        const std::unordered_map<std::string, std::vector<std::string>>& measurements,
         const std::filesystem::path& out_json_path)
     {
-        assert(!tissues || tissues->size() == layout.placements.size());
-        assert(!cells || cells->size() == nuclei->size());
+        assert(tissues.empty() || tissues.size() == layout.placements.size());
+        assert(cells.empty() || cells.size() == layout.placements.size());
+        assert(nuclei.empty() || cells.size() == nuclei.size());
+        assert(measurements.empty() || cells.size() == measurements.size());
 
         std::ofstream output_file(out_json_path);
         json_stream_encoder encoder(output_file);
@@ -399,7 +415,8 @@ namespace PyramidTiffData {
         };
 
     	auto parse_feature = [&encoder, parse_geometry](const MaskType maskType, const std::string& maskID,
-            const RoiPlacement& placement, const std::vector<Point2D>& ring_geom, const std::vector<Point2D>* ring_nucleus = nullptr)
+            const RoiPlacement& placement, const std::vector<Point2D>& ring_geom, const std::vector<Point2D>& ring_nucleus, 
+            const std::string& measurement)
 	    {
             ojson feat(jsoncons::json_object_arg);
 
@@ -408,8 +425,8 @@ namespace PyramidTiffData {
 
 	        parse_geometry(feat, placement, ring_geom);
 
-            if (ring_nucleus)
-                parse_geometry(feat, placement, *ring_nucleus, "nucleusGeometry");
+            if (!ring_nucleus.empty())
+                parse_geometry(feat, placement, ring_nucleus, "nucleusGeometry");
 
             // Properties
 			if (maskType == MaskType::Roi || maskType == MaskType::Tissue)
@@ -437,6 +454,10 @@ namespace PyramidTiffData {
             {
                 ojson properties(jsoncons::json_object_arg);
                 properties["objectType"] = "cell";
+
+                if (!measurement.empty())
+                    properties["measurements"] = jsoncons::ojson::parse(measurement);
+
                 feat["properties"] = std::move(properties);
             }
 
@@ -447,24 +468,26 @@ namespace PyramidTiffData {
         for (std::size_t roi_counter = 0; roi_counter < layout.placements.size(); ++roi_counter) {
             const auto& placement = layout.placements[roi_counter];
 
-            parse_feature(MaskType::Roi, placement.roi.id, placement, placement.roi.ring);
+            parse_feature(MaskType::Roi, placement.roi.id, placement, placement.roi.ring, {}, {});
 
-            if (tissues)
+            if (!tissues.empty())
             {
-                const auto& tissue = tissues->at(roi_counter);
-                parse_feature(MaskType::Tissue, tissue.id, placement, tissue.ring);
+                const auto& tissue = tissues.at(roi_counter);
+                parse_feature(MaskType::Tissue, tissue.id, placement, tissue.ring, {}, {});
             }
 
-            if (cells && nuclei)
+            if (!cells.empty() && cells.size() == nuclei.size() && cells.size() == measurements.size())
             {
                 const std::string& roi_name = placement.roi.name;
+                const auto& cells_roi = cells.at(roi_name);
+                const auto& nuclei_roi = nuclei.at(roi_name);
+                const auto& measurements_roi = measurements.at(roi_name);
 
-                for (std::size_t i = 0; i < cells->size(); ++i) {
-                    const auto& cell = cells->at(i);
-                    const auto& nucleus = nuclei->at(i);
-                    if (cell.name != roi_name) continue;
-
-                    parse_feature(MaskType::Cell, cell.id, placement, cell.ring, &(nucleus.ring));
+                for (std::size_t i = 0; i < cells_roi.size(); ++i) {
+                    const auto& cell = cells_roi.at(i);
+                    const auto& nucleus = nuclei_roi.at(i);
+                    const auto& measurement = measurements_roi.at(i);
+                    parse_feature(MaskType::Cell, cell.id, placement, cell.ring, nucleus.ring, measurement);
                 }
 
             }
@@ -809,14 +832,14 @@ namespace PyramidTiffData {
         const auto roi_order = read_roi_order(roi_order_path);
 
         fmt::println("Computing new ROIs...");
-        const RoiLayout layout = compute_roi_layout(rois, 16, &tissues, roi_order);
+        const RoiLayout layout = compute_roi_layout(rois, tissues, 16, roi_order);
 
         fmt::println("RoiArrangement: packing {} ROIs into a {}x{} grid ({}x{} px cells at full res)",
             layout.placements.size(), layout.grid_cols, layout.grid_rows,
             layout.cell_width, layout.cell_height);
 
         fmt::println("Save new json to {}", out_coords_json_path);
-        save_shifted_coordinates_json(layout, &tissues, &cells, &nuclei, out_coords_json_path);
+        save_shifted_coordinates_json(layout, tissues, cells, nuclei, measurements, out_coords_json_path);
 
         fmt::println("Shifting ROIs from {}", tiff_pyramid_path);
         const std::vector<LevelCanvas> canvases = shift_roi_to_new_canvas(tiff_pyramid, series, series_idx, layout);
