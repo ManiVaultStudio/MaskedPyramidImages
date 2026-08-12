@@ -151,7 +151,7 @@ namespace utils
 
                     fmt::println("Feature {} collected", features_buffer.size());
 
-                    // When buffer reaches 10 features, write to file and reset
+                    // When buffer reaches MAX_FEATURES_PER_FILE features, write to file and reset
                     if (features_buffer.size() >= MAX_FEATURES_PER_FILE) {
                         utils::create_output_file(features_buffer, json_path.parent_path(), file_number);
                         features_buffer.clear();

@@ -521,11 +521,17 @@ namespace PyramidTiffData {
                 if (fmt == SAMPLEFORMAT_INT) {
                     auto* d = static_cast<int8_t*>(dst);
                     for (size_t i = 0; i < n_samples; ++i)
-                        d[i] = static_cast<int8_t>(std::clamp(src[i], -128.f, 127.f));
+                        d[i] = static_cast<int8_t>(
+                            std::clamp(src[i], 
+                                static_cast<float>(std::numeric_limits<int8_t>::min()), 
+                                static_cast<float>(std::numeric_limits<int8_t>::max())));
                 } else {
                     auto* d = static_cast<uint8_t*>(dst);
                     for (size_t i = 0; i < n_samples; ++i)
-                        d[i] = static_cast<uint8_t>(std::clamp(src[i], 0.f, 255.f));
+                        d[i] = static_cast<uint8_t>(
+                            std::clamp(src[i], 
+                                static_cast<float>(std::numeric_limits<uint8_t>::min()), 
+                                static_cast<float>(std::numeric_limits<uint8_t>::max())));
                 }
             } else if (bps == 16) {
                 if (fmt == SAMPLEFORMAT_IEEEFP) {
@@ -533,11 +539,17 @@ namespace PyramidTiffData {
                 } else if (fmt == SAMPLEFORMAT_INT) {
                     auto* d = static_cast<int16_t*>(dst);
                     for (size_t i = 0; i < n_samples; ++i)
-                        d[i] = static_cast<int16_t>(std::clamp(src[i], -32768.f, 32767.f));
+                        d[i] = static_cast<int16_t>(
+                            std::clamp(src[i], 
+                                static_cast<float>(std::numeric_limits<int16_t>::min()), 
+                                static_cast<float>(std::numeric_limits<int16_t>::max())));
                 } else {
                     auto* d = static_cast<uint16_t*>(dst);
                     for (size_t i = 0; i < n_samples; ++i)
-                        d[i] = static_cast<uint16_t>(std::clamp(src[i], 0.f, 65535.f));
+                        d[i] = static_cast<uint16_t>(
+                            std::clamp(src[i], 
+                                static_cast<float>(std::numeric_limits<uint16_t>::min()), 
+                                static_cast<float>(std::numeric_limits<uint16_t>::max())));
                 }
             } else if (bps == 32) {
                 if (fmt == SAMPLEFORMAT_IEEEFP) {
@@ -545,11 +557,17 @@ namespace PyramidTiffData {
                 } else if (fmt == SAMPLEFORMAT_INT) {
                     auto* d = static_cast<int32_t*>(dst);
                     for (size_t i = 0; i < n_samples; ++i)
-                        d[i] = static_cast<int32_t>(std::clamp<double>(src[i], -2147483648.0, 2147483647.0));
+                        d[i] = static_cast<int32_t>(
+                            std::clamp<double>(src[i],
+                                std::numeric_limits<int32_t>::min(), 
+                                std::numeric_limits<int32_t>::max()));
                 } else {
                     auto* d = static_cast<uint32_t*>(dst);
                     for (size_t i = 0; i < n_samples; ++i)
-                        d[i] = static_cast<uint32_t>(std::clamp<double>(src[i], 0.0, 4294967295.0));
+                        d[i] = static_cast<uint32_t>(
+                            std::clamp<double>(src[i], 
+                                std::numeric_limits<uint32_t>::min(), 
+                                std::numeric_limits<uint32_t>::max()));
                 }
             } else {
                 throw std::runtime_error(fmt::format("RoiArrangement: unsupported bits_per_sample={} for writing", bps));
