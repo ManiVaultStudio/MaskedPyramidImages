@@ -55,17 +55,8 @@ namespace PyramidTiffData
         [[nodiscard]] const std::vector<std::string>& names_measurements() const noexcept {
             return _names_measurements;
         }
-        [[nodiscard]] const std::vector<float>& means_nucleus() const noexcept {
-            return _means_nucleus;
-        }
-        [[nodiscard]] const std::vector<float>& means_cytoplasm() const noexcept {
-            return _means_cytoplasm;
-        }
-        [[nodiscard]] const std::vector<float>& means_membrane() const noexcept {
-            return _means_membrane;
-        }
-        [[nodiscard]] const std::vector<float>& means_cell() const noexcept {
-            return _means_cell;
+        [[nodiscard]] const std::vector<float>& measurement_cell_md() const noexcept {
+            return _measure_cell_md;
         }
         [[nodiscard]] bool has_roi() const noexcept {
             return !_polygons_roi.empty();
@@ -79,11 +70,10 @@ namespace PyramidTiffData
         [[nodiscard]] bool has_nucleus() const noexcept {
             return !_polygons_nucleus.empty();
         }
-        [[nodiscard]] bool has_means() const noexcept {
-            return !_means_nucleus.empty()
-                && _means_nucleus.size() == _means_cytoplasm.size()
-                && _means_cytoplasm.size() == _means_membrane.size()
-                && _means_membrane.size() == _means_cell.size();
+        [[nodiscard]] bool has_measurements() const noexcept {
+            return !_names_measurements.empty()
+                && !_measure_cell_md.empty()
+                && _measure_cell_md.size() % _names_measurements.size() == 0;
         }
 
     private:
@@ -111,10 +101,7 @@ namespace PyramidTiffData
         std::vector<std::vector<Point2D>> _polygons_nucleus{};
 
         std::vector<std::string> _names_measurements{};
-        std::vector<float> _means_nucleus{};
-        std::vector<float> _means_cytoplasm{};
-        std::vector<float> _means_membrane{};
-        std::vector<float> _means_cell{};
+        std::vector<float> _measure_cell_md{};
     };
 
 } // namespace PyramidTiffData

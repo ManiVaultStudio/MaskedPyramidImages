@@ -140,11 +140,8 @@ namespace PyramidTiffData {
                         parseGeometry(feature, _polygons_cell);
                         parseGeometryNucleus(feature, _polygons_nucleus);
 
-                        parseMeasurementNames(feature, _names_measurements);
-                        parseMeasurementMeans(feature, _means_nucleus, "Nucleus");
-                        parseMeasurementMeans(feature, _means_cytoplasm, "Cytoplasm");
-                        parseMeasurementMeans(feature, _means_membrane, "Membrane");
-                        parseMeasurementMeans(feature, _means_cell, "Cell");
+                        parseMeasurementNames(feature, _names_measurements, "_md", "");
+                        parseMeasurementValues(feature, _measure_cell_md, "_md", "");
                     }
                     else
                     {
@@ -187,10 +184,7 @@ namespace PyramidTiffData {
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
         assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
-        assert(_means_nucleus.size() % _names_measurements.size() == 0);
-        assert(_means_nucleus.size() == _means_cytoplasm.size());
-        assert(_means_cytoplasm.size() == _means_membrane.size());
-        assert(_means_membrane.size() == _means_cell.size());
+        assert(_measure_cell_md.size() % _names_measurements.size() == 0);
     }
 
     std::tuple<std::vector<uint32_t>, std::vector<uint32_t>> PolygonData::getMaskRoi(const double scaleFactorWidth, const double scaleFactorHeight, const uint32_t imgWidthScaled, const uint32_t imgHeightScaled) const
