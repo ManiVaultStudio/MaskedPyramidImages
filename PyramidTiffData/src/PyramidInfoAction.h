@@ -39,6 +39,7 @@ public:
     mv::gui::ToggleAction& getLoadTissuesAction() { return _loadTissuesAction; }
     mv::gui::ToggleAction& getLoadCellsAction() { return _loadCellsAction; }
     mv::gui::ToggleAction& getLoadNucleiAction() { return _loadNucleiAction; }
+    mv::gui::ToggleAction& getLoadMeasurementsAction() { return _loadMeasurementsAction; }
     mv::gui::TriggerAction& getReadLevelAction() { return _readLevelAction; }
 
 public: // Serialization
@@ -62,9 +63,10 @@ protected:
     mv::gui::StringAction           _numberOfLevelsAction;              /** Number of pyramid levels action */
     mv::gui::StringAction           _numberOfChannelsAction;            /** Number of channels action */
     mv::gui::OptionAction           _resolutionsAction;                 /** List of pyramid resolutions action */
-    mv::gui::ToggleAction           _loadRoisAction;                     /**  */
-    mv::gui::ToggleAction           _loadTissuesAction;                     /**  */
-    mv::gui::ToggleAction           _loadCellsAction;                     /**  */
-    mv::gui::ToggleAction           _loadNucleiAction;                     /**  */
+    mv::gui::ToggleAction           _loadRoisAction;                    /**  */
+    mv::gui::ToggleAction           _loadTissuesAction;                 /**  */
+    mv::gui::ToggleAction           _loadCellsAction;                   /**  */
+    mv::gui::ToggleAction           _loadNucleiAction;                  /**  */
+    mv::gui::ToggleAction           _loadMeasurementsAction;            /**  */
     mv::gui::TriggerAction          _readLevelAction;                   /** List of pyramid resolutions action */
 };

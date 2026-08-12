@@ -18,6 +18,7 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     _loadTissuesAction(this, "Load Tissues"),
     _loadCellsAction(this, "Load Cells"),
     _loadNucleiAction(this, "Load Nuclei"),
+    _loadMeasurementsAction(this, "Load Measurements"),
     _readLevelAction(this, "Read level")
 {
     setText("Info");
@@ -36,6 +37,7 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     GroupAction::addAction(&_loadTissuesAction);
     GroupAction::addAction(&_loadCellsAction);
     GroupAction::addAction(&_loadNucleiAction);
+    GroupAction::addAction(&_loadMeasurementsAction);
     GroupAction::addAction(&_readLevelAction);
 }
 
@@ -52,7 +54,9 @@ void PyramidInfoAction::fromVariantMap(const QVariantMap& variantMap)
     _loadRoisAction.fromVariantMap(variantMap);
     _loadTissuesAction.fromVariantMap(variantMap);
     _loadCellsAction.fromVariantMap(variantMap);
+    _loadCellsAction.fromVariantMap(variantMap);
     _loadNucleiAction.fromVariantMap(variantMap);
+    _loadMeasurementsAction.fromVariantMap(variantMap);
 }
 
 QVariantMap PyramidInfoAction::toVariantMap() const
@@ -69,6 +73,7 @@ QVariantMap PyramidInfoAction::toVariantMap() const
     _loadTissuesAction.insertIntoVariantMap(variantMap);
     _loadCellsAction.insertIntoVariantMap(variantMap);
     _loadNucleiAction.insertIntoVariantMap(variantMap);
+    _loadMeasurementsAction.insertIntoVariantMap(variantMap);
 
     return variantMap;
 }
