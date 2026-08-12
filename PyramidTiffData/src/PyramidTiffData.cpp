@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <ranges>
 #include <string>
 
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
@@ -378,7 +377,7 @@ void PyramidImage::read_level()
 
     // 2. Publish Mask data //
     auto publicMaskData = [&](std::vector<uint32_t>& maskIDs, const std::vector<uint32_t>& pixel_counts, const std::vector<std::string>& polygonNames,
-        const QString& dataPrefix, const std::vector<std::array<uint8_t, 3>>* colors = nullptr)
+        const QString& dataPrefix, const std::vector<std::array<uint8_t, 3>>* colors = nullptr) -> mv::Dataset<Clusters>
     {
         auto pointsDatasetLevelSelection = pointsDatasetLevel->getSelection<Points>();
         auto& selectionIDs = pointsDatasetLevelSelection->indices;
@@ -387,7 +386,7 @@ void PyramidImage::read_level()
         auto maskedPointData = mv::data().createSubsetFromSelection(pointsDatasetLevelSelection, pointsDatasetLevel, dataPrefix + QStringLiteral(" data"), pointsDatasetLevel, true, true);
         selectionIDs.swap(maskIDs);
 
-        auto clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), dataPrefix + QStringLiteral(" clusters"), pointsDatasetLevel);
+        mv::Dataset<Clusters> clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), dataPrefix + QStringLiteral(" clusters"), pointsDatasetLevel);
 
         assert(polygonNames.size() == pixel_counts.size());
         assert(!colors || colors->size() == pixel_counts.size());
@@ -429,6 +428,7 @@ void PyramidImage::read_level()
 
         events().notifyDatasetDataChanged(clustersData);
 
+        return clustersData;
     };
 
     const auto& polygons = pyramidData->getPolygons();
