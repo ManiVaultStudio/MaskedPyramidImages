@@ -110,13 +110,12 @@ namespace PyramidTiffData {
     }
 
     void parseMeasurementNames(
-        const jsoncons::ojson& feat,
-        std::vector<std::string>& names);
+        const jsoncons::ojson& feat, std::vector<std::string>& names,
+        const std::string& suffix = "_std", const std::string& prefix = "");
 
-    void parseMeasurementMeans(
-        const jsoncons::ojson& feat,
-        std::vector<float>& means,
-        const std::string& structure);
+    void parseMeasurementValues(
+        const jsoncons::ojson& feat, std::vector<float>& values,
+        const std::string& suffix = "_std", const std::string& prefix = "");
 
     void copyMeasurement(
         const jsoncons::ojson& feat,

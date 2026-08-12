@@ -122,8 +122,8 @@ namespace PyramidTiffData {
     }
 
     void parseMeasurementNames(
-        const jsoncons::ojson& feat,
-        std::vector<std::string>& names)
+        const jsoncons::ojson& feat, std::vector<std::string>& names,
+        const std::string& suffix, const std::string& prefix)
     {
         if (!names.empty())
             return;
@@ -134,19 +134,16 @@ namespace PyramidTiffData {
 
         const auto& measurements = feat.at("properties").at("measurements");
 
-        const std::string prefix = "Nucleus: ";
-        const std::string suffix = ": Mean";
-
         std::unordered_set<std::string> seen_names;
 
         for (const auto& measurement : measurements.object_range())
         {
             const std::string& key = measurement.key();
 
-            if (!key.starts_with(prefix))
+            if (!prefix.empty() && !key.starts_with(prefix))
                 continue;
 
-            if (!key.ends_with(suffix))
+            if (!suffix.empty() && !key.ends_with(suffix))
                 continue;
 
             const std::string name = key.substr(
@@ -160,10 +157,9 @@ namespace PyramidTiffData {
         }
     }
 
-    void parseMeasurementMeans(
-        const jsoncons::ojson& feat,
-        std::vector<float>& means,
-        const std::string& structure)
+    void parseMeasurementValues(
+        const jsoncons::ojson& feat, std::vector<float>& values,
+        const std::string& suffix, const std::string& prefix)
     {
         if (!feat.contains("properties") ||
             !feat.at("properties").contains("measurements"))
@@ -174,19 +170,18 @@ namespace PyramidTiffData {
 
         const auto& measurements = feat.at("properties").at("measurements");
 
-        const std::string suffix = ": Mean";
-
+        // Assumes that the channels are in the same order for each measurement object
         for (const auto& measurement : measurements.object_range())
         {
             const std::string& key = measurement.key();
 
-            if (!key.starts_with(structure))
+            if (!prefix.empty() && !key.starts_with(prefix))
                 continue;
 
-            if (!key.ends_with(suffix))
+            if (!suffix.empty() && !key.ends_with(suffix))
                 continue;
 
-            means.push_back(measurement.value().as<float>());
+            values.push_back(measurement.value().as<float>());
         }
     }
 
