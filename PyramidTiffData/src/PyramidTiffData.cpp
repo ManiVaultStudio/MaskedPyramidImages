@@ -298,15 +298,21 @@ void PyramidImage::scan() const
     _infoAction->getNumberOfChannelsAction().setString(QString::number(series.channels));
     _infoAction->getResolutionsAction().setOptions(resolutions);
     _infoAction->getResolutionsAction().setCurrentIndex(static_cast<int>(numLevels - 1));
+
     const auto& polygons = pyramidData->getPolygons();
-    _infoAction->getLoadRoisAction().setChecked(polygons.has_roi());
-    _infoAction->getLoadRoisAction().setEnabled(polygons.has_roi());
-    _infoAction->getLoadTissuesAction().setChecked(polygons.has_tissue());
-    _infoAction->getLoadTissuesAction().setEnabled(polygons.has_tissue());
-    _infoAction->getLoadCellsAction().setChecked(polygons.has_cell());
-    _infoAction->getLoadCellsAction().setEnabled(polygons.has_cell());
-    _infoAction->getLoadNucleiAction().setChecked(polygons.has_nucleus());
-    _infoAction->getLoadNucleiAction().setEnabled(polygons.has_nucleus());
+
+    auto setCheckedAndEnabled = [](mv::gui::ToggleAction& toggle, const bool status)
+        {
+            toggle.setChecked(status);
+            toggle.setEnabled(status);
+        };
+
+    setCheckedAndEnabled(_infoAction->getLoadRoisAction(), polygons.has_roi());
+    setCheckedAndEnabled(_infoAction->getLoadTissuesAction(), polygons.has_tissue());
+    setCheckedAndEnabled(_infoAction->getLoadCellsAction(), polygons.has_cell());
+    setCheckedAndEnabled(_infoAction->getLoadNucleiAction(), polygons.has_nucleus());
+    setCheckedAndEnabled(_infoAction->getLoadMeasurementsAction(), polygons.has_measurements());
+
     _infoAction->getReadLevelAction().setEnabled(true);
 
 }
@@ -449,7 +455,33 @@ void PyramidImage::read_level()
     {
         fmt::println("Transform CELL mask");
         auto [maskIDs_cell, pixel_counts_cell] = polygons.getMaskCell(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_cell, pixel_counts_cell, polygons.names_cell(), "CELL");
+        const auto cellClusters = publicMaskData(maskIDs_cell, pixel_counts_cell, polygons.names_cell(), "CELL");
+
+        // Publish cell measurements
+        if (polygons.has_measurements() && _infoAction->getLoadMeasurementsAction().isChecked())
+        {
+            fmt::println("Publish cell measurement data");
+            auto& names_measurements = polygons.names_measurements();
+            auto& cell_md = polygons.measurement_cell_md();
+
+            assert(cell_md.size() % names_measurements.size() == 0);
+            assert(static_cast<qsizetype>(cell_md.size() / names_measurements.size()) == cellClusters->getClusters().size());
+            assert(names_measurements.size() == channelNames.size());
+            assert(names_measurements.size() == lvlNumChannels);
+            assert(std::ranges::equal(names_measurements, channelNames,
+                    [](const std::string& s, const QString& q) {
+                        return s == q.toStdString();
+                    }));
+
+            auto cellMdDataset = mv::data().createDataset<Points>(QStringLiteral("Points"), QStringLiteral("Cell md"), pointsDatasetLevel);
+
+            cellMdDataset->setData(cell_md, lvlNumChannels);
+            cellMdDataset->setDimensionNames(channelNames);
+
+            events().notifyDatasetDataChanged(cellMdDataset);
+            events().notifyDatasetDataDimensionsChanged(cellMdDataset);
+        }
+
     }
     if (polygons.has_nucleus() && _infoAction->getLoadNucleiAction().isChecked())
     {
