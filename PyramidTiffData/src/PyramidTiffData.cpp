@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <ranges>
 #include <string>
 
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
@@ -130,6 +129,7 @@ void PyramidImage::init()
     addAction(*_infoAction);
 
     connect(&_infoAction->getReadLevelAction(), &gui::TriggerAction::triggered, this, &PyramidImage::read_level);
+    connect(&_infoAction->getWriteClustersAction(), &gui::TriggerAction::triggered, this, &PyramidImage::write_clusters);
 
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(mv::EventType::DatasetAboutToBeRemoved));
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(EventType::DatasetDataSelectionChanged));
@@ -458,6 +458,33 @@ void PyramidImage::read_level()
         publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, polygons.names_cell(), "NUCLEUS");
     }
 
+}
+
+void PyramidImage::write_clusters()
+{
+    // Check if _jsonFilePath exists, otherwise ask for filepath
+    const bool jsonExists = std::filesystem::exists(_jsonFilePath.toStdString());
+
+    // Check if the cluster is derived from some specific level, otherwise ask for the level
+    auto getClusterLevel = [&]() -> int32_t
+    {
+        const auto clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
+        const auto clusterDataParent = clusterData->getParent();
+
+        const auto levelDataIt = _levelDatasets.find(clusterDataParent.getDatasetId());
+
+        if (levelDataIt == _levelDatasets.end())
+            return -1;
+
+        return static_cast<int32_t>(levelDataIt->second.second);
+    };
+
+    const int32_t clusterLevel = getClusterLevel();
+
+    // each cluster maps to level IDs
+    // map the level IDs to the base resolution
+    // for each cell in the json, check which cluster base resolution IDs falls into the cell maks
+    // TODO: how to handle multiple classifications/clusters per cell? For now store them all in one array
 }
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()

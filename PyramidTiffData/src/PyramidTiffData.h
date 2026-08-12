@@ -124,7 +124,9 @@ public:
 
     void scan() const;
 
+private:
     void read_level();
+    void write_clusters();
 
 public: // Getter and Setter
     [[nodiscard]] QString getTiffFilePath() const {

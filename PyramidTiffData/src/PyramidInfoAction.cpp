@@ -4,6 +4,8 @@
 
 #include "PyramidInfoAction.h"
 
+#include <ClusterData/ClusterData.h>
+
 using namespace mv::gui;
 
 PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage) :
@@ -18,9 +20,26 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     _loadTissuesAction(this, "Load Tissues"),
     _loadCellsAction(this, "Load Cells"),
     _loadNucleiAction(this, "Load Nuclei"),
-    _readLevelAction(this, "Read level")
+    _readLevelAction(this, "Read level"),
+    _datasetClusterAction(this, "Cluster data"),
+    _writeClustersAction(this, "Write clusters")
 {
     setText("Info");
+
+    _datasetClusterAction.setEnabled(false);
+    _writeClustersAction.setEnabled(false);
+
+    _datasetClusterAction.setFilterFunction([this](mv::Dataset<mv::DatasetImpl> dataset) -> bool {
+        if (dataset->getDataType() == ClusterType) 
+            return true;
+        
+        return false;
+        });
+
+    connect(&_datasetClusterAction, &DatasetPickerAction::datasetsChanged, this, [this](const mv::Datasets& datasets) {
+        _datasetClusterAction.setEnabled(!datasets.empty());
+        _writeClustersAction.setEnabled(!datasets.empty());
+        });
 
     auto readOnlyWidget = [this](WidgetAction* action, QWidget* widget) -> void {
         if (auto lineWidget = widget->findChild<QLineEdit*>("LineEdit"))
@@ -37,6 +56,8 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     GroupAction::addAction(&_loadCellsAction);
     GroupAction::addAction(&_loadNucleiAction);
     GroupAction::addAction(&_readLevelAction);
+    GroupAction::addAction(&_datasetClusterAction);
+    GroupAction::addAction(&_writeClustersAction);
 }
 
 void PyramidInfoAction::fromVariantMap(const QVariantMap& variantMap)
@@ -53,6 +74,8 @@ void PyramidInfoAction::fromVariantMap(const QVariantMap& variantMap)
     _loadTissuesAction.fromVariantMap(variantMap);
     _loadCellsAction.fromVariantMap(variantMap);
     _loadNucleiAction.fromVariantMap(variantMap);
+    _datasetClusterAction.fromVariantMap(variantMap);
+    _writeClustersAction.fromVariantMap(variantMap);
 }
 
 QVariantMap PyramidInfoAction::toVariantMap() const
@@ -69,6 +92,8 @@ QVariantMap PyramidInfoAction::toVariantMap() const
     _loadTissuesAction.insertIntoVariantMap(variantMap);
     _loadCellsAction.insertIntoVariantMap(variantMap);
     _loadNucleiAction.insertIntoVariantMap(variantMap);
+    _datasetClusterAction.insertIntoVariantMap(variantMap);
+    _writeClustersAction.insertIntoVariantMap(variantMap);
 
     return variantMap;
 }
