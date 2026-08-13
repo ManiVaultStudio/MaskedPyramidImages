@@ -57,6 +57,10 @@ namespace PyramidTiffData {
             int unnamed_roi_counter = 0;
             int unnamed_tissue_counter = 0;
             int unnamed_cell_counter = 0;
+            const std::string prefix_roi = getMaskString(MaskType::Roi);
+            const std::string prefix_tissue = getMaskString(MaskType::Tissue);
+            const std::string prefix_cell = getMaskString(MaskType::Cell);
+            
             bool in_features_array = false;
 
             const uintmax_t total_bytes = std::filesystem::file_size(path);
@@ -94,19 +98,19 @@ namespace PyramidTiffData {
 
                     if (maskType == MaskType::Roi)
                     {
-                        parseName(feature, _names_roi, "ROI", unnamed_roi_counter);
+                        parseName(feature, _names_roi, prefix_roi, unnamed_roi_counter);
                         parseGeometry(feature, _polygons_roi);
                         parseColor(feature, _colors_roi);
                     }
                     else if (maskType == MaskType::Tissue)
                     {
-                        parseNameID(feature, _names_tissue, "TISSUE", unnamed_tissue_counter);
+                        parseNameID(feature, _names_tissue, prefix_tissue, unnamed_tissue_counter);
                         parseGeometry(feature, _polygons_tissue);
                         parseColor(feature, _colors_tissue);
                     }
                     else if (maskType == MaskType::Cell)
                     {
-                        parseNameID(feature, _names_cell, "CELL", unnamed_cell_counter);
+                        parseNameID(feature, _names_cell, prefix_cell, unnamed_cell_counter);
                         parseGeometry(feature, _polygons_cell);
                         parseGeometryNucleus(feature, _polygons_nucleus);
 
