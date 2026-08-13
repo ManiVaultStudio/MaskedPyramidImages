@@ -13,6 +13,7 @@
 
 #include <ankerl/unordered_dense.h>
 #include <fmt/base.h>
+#include <fmt/std.h>
 #include <rapidcsv.h>
 
 #include <algorithm>
