@@ -8,11 +8,13 @@
 #include <fmt/format.h>
 
 namespace PyramidTiffData {
-
-    static void transformToUpper(std::string& str)
+    namespace
     {
-        std::ranges::transform(str, str.begin(),
-            [](const unsigned char c) { return std::toupper(c); });
+        void transformToUpper(std::string& str)
+        {
+            std::ranges::transform(str, str.begin(),
+                [](const unsigned char c) { return std::toupper(c); });
+        }
     }
 
     MaskType getMaskType(const jsoncons::ojson& feat)

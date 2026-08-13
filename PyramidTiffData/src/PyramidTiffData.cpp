@@ -1,5 +1,8 @@
 #include "PyramidTiffData.h"
 
+#include "CommonTypesAndTransformations.h"
+#include "UtilsFiles.h"
+#include "UtilsClusters.h"
 #include "PyramidInfoAction.h"
 
 #include <event/Event.h>
@@ -8,11 +11,13 @@
 #include <PointData/PointData.h>
 #include <ClusterData/ClusterData.h>
 
+#include <ankerl/unordered_dense.h>
 #include <fmt/base.h>
+#include <rapidcsv.h>
 
 #include <algorithm>
+#include <atomic>
 #include <filesystem>
-#include <fstream>
 #include <string>
 
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
@@ -476,13 +481,17 @@ void PyramidImage::read_level()
 
 void PyramidImage::write_clusters()
 {
+    using namespace PyramidTiffData;
+
+    mv::Dataset<Clusters> clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
+
     // Check if _jsonFilePath exists, otherwise ask for filepath
-    const bool jsonExists = std::filesystem::exists(_jsonFilePath.toStdString());
+    std::filesystem::path jsonFilePath = _jsonFilePath.toStdString();
+    const bool jsonExists = std::filesystem::exists(jsonFilePath);
 
     // Check if the cluster is derived from some specific level, otherwise ask for the level
-    auto getClusterLevel = [&]() -> int32_t
+    auto getClusterLevel = [this](const mv::Dataset<Clusters>& clusterData) -> int32_t
     {
-        const auto clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
         const auto clusterDataParent = clusterData->getParent();
 
         const auto levelDataIt = _levelDatasets.find(clusterDataParent.getDatasetId());
@@ -493,12 +502,102 @@ void PyramidImage::write_clusters()
         return static_cast<int32_t>(levelDataIt->second.second);
     };
 
-    const int32_t clusterLevel = getClusterLevel();
+    const int32_t clusterLevel = getClusterLevel(clusterData);
 
     // each cluster maps to level IDs
     // map the level IDs to the base resolution
     // for each cell in the json, check which cluster base resolution IDs falls into the cell maks
-    // TODO: how to handle multiple classifications/clusters per cell? For now store them all in one array
+
+    const auto& levelInfos = getRawData<PyramidImageData>()->getPyramid().series().pyramid;
+    const uint32_t baseWidth = levelInfos[0].width;
+    const uint32_t baseHeight = levelInfos[0].height;
+    const uint32_t fromLevelWidth = levelInfos[clusterLevel].width;
+    const uint32_t fromLevelHeigh = levelInfos[clusterLevel].height;
+
+    /*
+    for each cell_entry in json_file:
+        cell_name, cell_pixels <- parseEntry(cell_entry)
+        
+    for each cell:
+        cell_clusters <- {}
+        for each cluster in clusterData:
+            cluster_pixels <- mapClusterToBase(cluster)
+            cell_clusters <- + overlap(cluster_pixels, cell_pixels)
+    
+    for each cell_entry in json_file:
+        write(cell_clusters, cell_entry)
+    */
+
+    // (I) Read 
+    ankerl::unordered_dense::map<std::string, CellStruct> cellMap = readCellStructs(jsonFilePath, baseWidth, baseHeight);
+
+    // (II) Map cluster IDs to cells
+    {
+        QVector<Cluster>& dataClusters = clusterData->getClusters();
+        const int64_t numClusters = static_cast<int64_t>(dataClusters.size());
+
+        for (auto& [cellName, cellStruct] : cellMap)
+        {
+            std::atomic<bool> stop{ false };
+
+#pragma omp parallel for shared(stop)
+            for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+                if (stop.load(std::memory_order_relaxed)) continue;
+
+                Cluster& cluster = dataClusters[numCluster];
+                const std::vector<uint32_t> baseIndices = mapLevelIdsToBase(cluster.getIndices(), clusterLevel,
+                    baseWidth, baseHeight, fromLevelWidth, fromLevelHeigh);
+
+                std::vector<uint32_t> intersection;
+                std::ranges::set_intersection(cellStruct.basePixels, baseIndices,
+                    std::back_inserter(intersection));
+
+#pragma omp critical
+                {
+                    if (!intersection.empty()) {
+                        cellStruct.clusterId = numCluster;
+                        stop.store(true, std::memory_order_relaxed);
+                    }
+                }
+            
+
+            }
+        }
+    }
+
+    // write to csv
+    {
+        rapidcsv::Document csv("", rapidcsv::LabelParams(0, -1));
+        const auto csvPath = changeExtension(jsonFilePath, ".csv");
+        fmt::println("Write new cluster file to {}", csvPath);
+
+        std::vector<double> centroidX;
+        std::vector<double> centroidY;
+        std::vector<std::string> imageNames;
+        std::vector<int64_t> clusterIDs;
+
+        centroidX.reserve(cellMap.size());
+        centroidY.reserve(cellMap.size());
+        imageNames.reserve(cellMap.size());
+        clusterIDs.reserve(cellMap.size());
+
+
+        for (auto& [cellName, cellStruct] : cellMap)
+        {
+            centroidX.push_back(cellStruct.centroid.x);
+            centroidY.push_back(cellStruct.centroid.y);
+            imageNames.push_back(cellStruct.imageName);
+            clusterIDs.push_back(cellStruct.clusterId);
+        }
+
+        csv.SetColumn<double>("X", centroidX);
+        csv.SetColumn<double>("Y", centroidY);
+        csv.SetColumn<std::string>("Image", imageNames);
+        csv.SetColumn<int64_t>("Cluster", clusterIDs);
+
+        csv.Save(csvPath.generic_string());
+    }
+
 }
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()
