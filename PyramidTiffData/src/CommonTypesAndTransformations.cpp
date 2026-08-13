@@ -6,12 +6,14 @@
 #include <cmath>
 #include <cstring>  // for memset
 
-#if defined(__cpp_lib_execution)
-#if defined(__GNUC__)  // both TBB and Qt define emit keyword: undef
+#include <fmt/base.h>
+
+#ifdef __cpp_lib_execution
+#ifdef __GNUC__  // both TBB and Qt define emit keyword: undef
 #undef emit
 #endif
 #include <execution>
-#if defined(__GNUC__) // both TBB and Qt define emit keyword: def again
+#ifdef __GNUC__ // both TBB and Qt define emit keyword: def again
 #define emit
 #endif
 #ifdef NDEBUG
