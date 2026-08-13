@@ -20,6 +20,28 @@ Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 using namespace mv;
 
 // =============================================================================
+// Helper
+// =============================================================================
+namespace
+{
+    std::vector<uint32_t> mapLevelIdsToBase(std::vector<uint32_t>& levelIDs, const uint32_t fromLevelId, 
+        const uint32_t baseWidth, const uint32_t baseHeigh, const uint32_t fromLevelWidth, const uint32_t fromLevelHeigh)
+    {
+        PyramidTiffData::sortAndUnique(levelIDs);
+
+        auto baseIndices = (fromLevelId == 0) ?
+            levelIDs :
+            PyramidTiffData::convertSelectionToUpscaled(levelIDs,
+                fromLevelWidth, fromLevelHeigh,
+                baseWidth, baseHeigh);
+
+        PyramidTiffData::sortAndUnique(baseIndices);
+
+        return baseIndices;
+    }
+}
+
+// =============================================================================
 // Data (Raw)
 // =============================================================================
 
@@ -202,16 +224,8 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& selectionInputData)
 
 	// Map from level to base
     mv::Dataset<Points> selectionIDs = selectionInputData->getSelection();
-
-    PyramidTiffData::sortAndUnique(selectionIDs->indices);
-
-    auto baseIndices = (fromLevel == 0) ?
-        selectionIDs->indices :
-        PyramidTiffData::convertSelectionToUpscaled(selectionIDs->indices,
-            fromLevelWidth, fromLevelHeigh, 
-            baseWidth, baseHeigh);
-
-    PyramidTiffData::sortAndUnique(baseIndices);
+    const auto baseIndices = mapLevelIdsToBase(selectionIDs->indices, fromLevel,
+        baseWidth, baseHeigh, fromLevelWidth, fromLevelHeigh);
 
     // Map from base to all other levels
     for (const auto& [toLevelID, toLevelPair] : _levelDatasets)
