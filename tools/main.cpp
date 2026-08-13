@@ -1,4 +1,5 @@
 #include "UtilsJson.h"
+#include "UtilsFiles.h"
 #include "UtilsRoiArrangement.h"
 
 #include <filesystem>
@@ -9,60 +10,6 @@
 #include <fmt/std.h>
 
 #include <CLI/CLI.hpp>
-
-namespace utils
-{
-    static std::filesystem::path changeExtension(
-        const std::filesystem::path& p,
-        const std::string_view ext)
-    {
-        std::string filename = p.filename().string();
-
-        // Find the first dot (skipping index 0 to handle hidden files like .gitignore)
-        size_t first_dot = filename.find('.', 1);
-
-        if (first_dot == std::string::npos) {
-            // If there's no extension at all, use standard behavior
-            auto result = p;
-            result.replace_extension(ext);
-            return result;
-        }
-
-        // Extract the stem (everything before the first dot)
-        std::string stem = filename.substr(0, first_dot);
-
-        // Prepare the new extension: ensure it starts with a dot if not empty
-        std::string formatted_ext(ext);
-        if (!formatted_ext.empty() && formatted_ext[0] != '.') {
-            formatted_ext.insert(0, ".");
-        }
-
-        // Reconstruct the path: Parent Dir + Stem + New Extension
-        return p.parent_path() / (stem + formatted_ext);
-    }
-
-    static std::filesystem::path insertSuffixExtension(
-        const std::filesystem::path& p,
-        const std::string& suffix)
-    {
-        std::string filename = p.filename().string();
-
-        // Find the first dot. 
-        // We start searching at index 1 to avoid treating hidden files 
-        // (e.g., .gitignore) as having an extension at the start.
-        size_t first_dot = filename.find('.', 1);
-
-        if (first_dot == std::string::npos) {
-            // No extension found, just append to the end
-            return p.parent_path() / (filename + suffix);
-        }
-
-        std::string stem = filename.substr(0, first_dot);
-        std::string extension = filename.substr(first_dot);
-
-        return p.parent_path() / (stem + suffix + extension);
-    }
-}
 
 // Reads a tiff file that contains an image pyramid
 // and writes each chanel of the hightest level to disk
@@ -87,9 +34,9 @@ int main(int argc, char* argv[]) {
 
     CLI11_PARSE(app, argc, argv);
 
-    const auto in_json_path = utils::changeExtension(in_img_path, ".geojson");
-    const auto out_tiff_path = utils::insertSuffixExtension(in_img_path, suffix);
-    const auto out_json_path = utils::insertSuffixExtension(in_json_path, suffix);
+    const auto in_json_path     = PyramidTiffData::changeExtension(in_img_path, ".geojson");
+    const auto out_tiff_path    = PyramidTiffData::insertSuffixExtension(in_img_path, suffix);
+    const auto out_json_path    = PyramidTiffData::insertSuffixExtension(in_json_path, suffix);
 
     fmt::println("Input tiff file: {}", in_img_path);
     fmt::println("Input JSON file: {}", in_json_path);

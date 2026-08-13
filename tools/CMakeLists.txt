@@ -20,6 +20,7 @@ target_sources(pyramidstackmerge
         ../PyramidTiffData/src/PolygonData.cpp
         ../PyramidTiffData/src/CommonTypesAndTransformations.cpp
         ../PyramidTiffData/src/UtilsJson.cpp
+        ../PyramidTiffData/src/UtilsFiles.cpp
 )
 
 target_include_directories(pyramidstackmerge

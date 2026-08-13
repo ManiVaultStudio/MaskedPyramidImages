@@ -1,6 +1,7 @@
 #include "OmeTiffPyramid.h"
 #include "PolygonData.h"
 #include "UtilsJson.h"
+#include "UtilsFiles.h"
 #include "CommonTypesAndTransformations.h"
 
 #include <fstream>
@@ -22,57 +23,6 @@ using namespace jsoncons;
 
 namespace utils
 {
-    static std::filesystem::path changeExtension(
-        const std::filesystem::path& p,
-        const std::string_view ext)
-    {
-        std::string filename = p.filename().string();
-
-        // Find the first dot (skipping index 0 to handle hidden files like .gitignore)
-        size_t first_dot = filename.find('.', 1);
-
-        if (first_dot == std::string::npos) {
-            // If there's no extension at all, use standard behavior
-            auto result = p;
-            result.replace_extension(ext);
-            return result;
-        }
-
-        // Extract the stem (everything before the first dot)
-        std::string stem = filename.substr(0, first_dot);
-
-        // Prepare the new extension: ensure it starts with a dot if not empty
-        std::string formatted_ext(ext);
-        if (!formatted_ext.empty() && formatted_ext[0] != '.') {
-            formatted_ext.insert(0, ".");
-        }
-
-        // Reconstruct the path: Parent Dir + Stem + New Extension
-        return p.parent_path() / (stem + formatted_ext);
-    }
-
-    static std::filesystem::path insertSuffixExtension(
-        const std::filesystem::path& p,
-        const std::string& suffix)
-    {
-        std::string filename = p.filename().string();
-
-        // Find the first dot. 
-        // We start searching at index 1 to avoid treating hidden files 
-        // (e.g., .gitignore) as having an extension at the start.
-        size_t first_dot = filename.find('.', 1);
-
-        if (first_dot == std::string::npos) {
-            // No extension found, just append to the end
-            return p.parent_path() / (filename + suffix);
-        }
-
-        std::string stem = filename.substr(0, first_dot);
-        std::string extension = filename.substr(first_dot);
-
-        return p.parent_path() / (stem + suffix + extension);
-    }
-
     static void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath, int file_number) {
         const auto filename = outfilepath / fmt::format("output_{}.geojson", file_number);
 
@@ -290,7 +240,7 @@ int main(int argc, char* argv[]) {
     }
 	
     const std::filesystem::path img_path = argv[1];
-    const std::filesystem::path json_path = utils::changeExtension(img_path, ".geojson");
+    const std::filesystem::path json_path = PyramidTiffData::changeExtension(img_path, ".geojson");
     fmt::println("Reading file: {}", img_path);
     fmt::println("JSON file: {}", json_path);
 
