@@ -135,27 +135,24 @@ namespace PyramidTiffData {
         return result;
     }
 
-    void rasterize_polygon(const std::vector<Point2D>& points, const uint32_t img_width, const uint32_t img_height,
-        std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts)
+    std::vector<uint32_t> rasterize_polygon(
+        const std::vector<Point2D>& points, const uint32_t img_width, const uint32_t img_height)
     {
-        if (points.empty()) return;
-        if (points.front() != points.back()) return;
+        if (points.empty()) return {};
+        if (points.front() != points.back()) return {};
 
         // Find bounding box to limit search area
         auto [minIt, maxIt] = std::minmax_element(MV_PYRAMID_PARALLEL_EXECUTION
-			points.begin(), points.end(),
-            [](const Point2D& a, const Point2D& b) 
+            points.begin(), points.end(),
+            [](const Point2D& a, const Point2D& b)
             { return a.y < b.y; });
         const double minY = minIt->y;
         const double maxY = maxIt->y;
 
-        const uint32_t count_before = static_cast<uint32_t>(indices.size());
         const auto img_width_d = static_cast<double>(img_width);
         const auto max_id = static_cast<uint64_t>(img_width) * img_height;
 
-        std::vector<uint32_t> local_indices;
-        if (!pixel_counts.empty())
-            local_indices.reserve(pixel_counts.back());
+        std::vector<uint32_t> indices;
 
         // Iterate through each scanline
         for (uint32_t y = static_cast<uint32_t>(minY); y <= maxY; ++y) {
@@ -170,7 +167,7 @@ namespace PyramidTiffData {
                 const auto& [xj, yj] = points[j];
 
                 if ((yi <= scanline && yj > scanline) || (yj <= scanline && yi > scanline)) {
-                	const double nodeX = xi + (scanline - yi) / (yj - yi) * (xj - xi);
+                    const double nodeX = xi + (scanline - yi) / (yj - yi) * (xj - xi);
                     const double clampedX = std::clamp(nodeX, 0.0, img_width_d - 1.0);
                     nodes.push_back(static_cast<uint32_t>(std::round(clampedX)));
                 }
@@ -190,23 +187,108 @@ namespace PyramidTiffData {
                     // Convert 2D to 1D index
                     if (const uint64_t idx = static_cast<uint64_t>(y) * img_width + x;
                         idx < max_id)
-                        local_indices.push_back(static_cast<uint32_t>(idx));
+                        indices.push_back(static_cast<uint32_t>(idx));
                 }
             }
         }
 
-        sortAndUnique(local_indices);
+        sortAndUnique(indices);
+
+        return indices;
+    }
+
+    void rasterize_polygon(const std::vector<Point2D>& points, const uint32_t img_width, const uint32_t img_height,
+        std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts)
+    {
+        if (points.empty()) return;
+        if (points.front() != points.back()) return;
+
+        // Find bounding box to limit search area
+        auto [minIt, maxIt] = std::minmax_element(MV_PYRAMID_PARALLEL_EXECUTION
+			points.begin(), points.end(),
+            [](const Point2D& a, const Point2D& b) 
+            { return a.y < b.y; });
+        const double minY = minIt->y;
+        const double maxY = maxIt->y;
+
+        std::vector<uint32_t> local_indices = rasterize_polygon(points, img_width, img_height);
+
+        pixel_counts.push_back(static_cast<uint32_t>(local_indices.size()));
 
         indices.reserve(indices.size() + local_indices.size());
         indices.insert(indices.end(),
             std::make_move_iterator(local_indices.begin()),
             std::make_move_iterator(local_indices.end()));
+    }
 
-        const uint32_t count_after = static_cast<uint32_t>(indices.size());
-        pixel_counts.push_back(count_after - count_before);
+    // Computes the area-weighted centroid of a simple polygon.
+    // https://en.wikipedia.org/wiki/Centroid#Of_a_polygon
+    Point2D computeCentroid(const std::vector<Point2D>& coordinates)
+    {
+        const std::size_t n = coordinates.size();
 
-        indices.shrink_to_fit();
-        pixel_counts.shrink_to_fit();
+        // Need at least 3 distinct vertices + closing point => size >= 4
+        if (n < 4) {
+            fmt::println("computeCentroid: need at least a closed triangle (>=4 points).");
+            return {};
+        }
+        if (coordinates.front() != coordinates.back()) {
+            fmt::println("computeCentroid: polygon must be closed (first == last point).");
+            return {};
+        }
+
+        double signed_area = 0.0;
+        double cx = 0.0;
+        double cy = 0.0;
+
+        // Iterate over edges (p_i, p_{i+1}); last edge is (p_{n-2}, p_{n-1}==p_0)
+        for (std::size_t i = 0; i + 1 < n; ++i) {
+            const Point2D& p0 = coordinates[i];
+            const Point2D& p1 = coordinates[i + 1];
+
+            const double cross = p0.x * p1.y - p1.x * p0.y;
+            signed_area += cross;
+            cx += (p0.x + p1.x) * cross;
+            cy += (p0.y + p1.y) * cross;
+        }
+
+        signed_area *= 0.5;
+
+        // Degenerate polygon (zero area, e.g. collinear points): fall back
+        // to the simple average of the (unique) vertices.
+        if (std::abs(signed_area) < 1e-12) {
+            double sum_x = 0.0, sum_y = 0.0;
+            const std::size_t unique_count = n - 1; // exclude repeated closing vertex
+            for (std::size_t i = 0; i < unique_count; ++i) {
+                sum_x += coordinates[i].x;
+                sum_y += coordinates[i].y;
+            }
+            return Point2D{ sum_x / static_cast<double>(unique_count),
+                             sum_y / static_cast<double>(unique_count) };
+        }
+
+        const double factor = 1.0 / (6.0 * signed_area);
+        return Point2D{ cx * factor, cy * factor };
+    }
+
+
+    constexpr uintmax_t ProgressBarWidth = 40;
+
+    void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
+    {
+        const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
+        if (pct != previous_pct) {
+            previous_pct = pct;
+            const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
+            fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
+            [[maybe_unused]] int success = std::fflush(stdout);
+        }
+
+    }
+
+    void ProgressBarFinish()
+    {
+        fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
     }
 
 } // PyramidTiffData

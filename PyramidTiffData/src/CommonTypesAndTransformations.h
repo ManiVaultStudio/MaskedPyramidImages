@@ -44,8 +44,20 @@ namespace PyramidTiffData {
         const uint32_t originalWidth, const uint32_t originalHeight,
         const uint32_t newWidth, const uint32_t newHeight);
 
-    void rasterize_polygon(const std::vector<Point2D>& points, 
+    std::vector<uint32_t> rasterize_polygon(const std::vector<Point2D>& points,
+        const uint32_t img_width, const uint32_t img_height);
+
+    // append rasterized output of rasterize_polygon to indices
+    void rasterize_polygon(const std::vector<Point2D>& points,
         const uint32_t img_width, const uint32_t img_height,
         std::vector<uint32_t>& indices, std::vector<uint32_t>& pixel_counts);
+
+    Point2D computeCentroid(const std::vector<Point2D>& coordinates);
+
+    void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total);
+
+    void ProgressBarFinish();
+
+    inline std::uintmax_t ProgressBarInit() { return 0; }
 
 }
