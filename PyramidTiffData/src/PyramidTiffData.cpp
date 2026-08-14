@@ -539,12 +539,15 @@ void PyramidImage::write_clusters()
 
         for (auto& [cellName, cellStruct] : cellMap)
         {
+#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
             std::atomic<bool> stop{ false };
 
 #pragma omp parallel for shared(stop)
+#endif
             for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
                 if (stop.load(std::memory_order_relaxed)) continue;
-
+#endif
                 Cluster& cluster = dataClusters[numCluster];
                 const std::vector<uint32_t> baseIndices = mapLevelIdsToBase(cluster.getIndices(), clusterLevel,
                     baseWidth, baseHeight, fromLevelWidth, fromLevelHeigh);
@@ -553,14 +556,18 @@ void PyramidImage::write_clusters()
                 std::ranges::set_intersection(cellStruct.basePixels, baseIndices,
                     std::back_inserter(intersection));
 
+#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
 #pragma omp critical
+#endif
                 {
                     if (!intersection.empty()) {
                         cellStruct.clusterId = numCluster;
+#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
                         stop.store(true, std::memory_order_relaxed);
+#endif
                     }
                 }
-            
+
 
             }
         }
