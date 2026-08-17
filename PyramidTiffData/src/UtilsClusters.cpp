@@ -11,7 +11,7 @@
 
 namespace PyramidTiffData {
 
-    ankerl::unordered_dense::map<std::string, CellStruct> readCellStructs(const std::filesystem::path& jsonFilePath,
+    std::vector<CellStruct> readCellStructs(const std::filesystem::path& jsonFilePath,
         const uint32_t baseWidth, const uint32_t baseHeight)
     {
         std::ifstream f(jsonFilePath);
@@ -20,7 +20,7 @@ namespace PyramidTiffData {
             return {};
         }
 
-        ankerl::unordered_dense::map<std::string, CellStruct> cellMap;
+        std::vector<CellStruct> cellStructs;
 
         bool found_features = false;
         const auto cellPrefix = getMaskString(MaskType::Cell);
@@ -79,13 +79,14 @@ namespace PyramidTiffData {
                     std::vector<Point2D> cellCoordinates{};
                     parseGeometry(feature, cellCoordinates, "geometry");
 
-                    cellMap[cellName] = {
+                    cellStructs.push_back({
                         .centroid = computeCentroid(cellCoordinates),
                         .basePixels = rasterize_polygon(cellCoordinates, baseWidth, baseHeight),
+                        .cellName = cellName,
                         .imageName = currentRoiName,
                         .clusterId = -1
-                    };
-
+                        });
+                ;
                     break;
                 }
                 case jsoncons::staj_event_type::end_array:
@@ -115,7 +116,7 @@ namespace PyramidTiffData {
             fmt::println("PolygonData::parse_mask_annotations: json does not contain features field");
         }
          
-        return cellMap;
+        return cellStructs;
     }
 
 

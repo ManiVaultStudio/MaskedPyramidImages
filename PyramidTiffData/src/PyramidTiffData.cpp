@@ -11,7 +11,6 @@
 #include <PointData/PointData.h>
 #include <ClusterData/ClusterData.h>
 
-#include <ankerl/unordered_dense.h>
 #include <fmt/base.h>
 #include <fmt/std.h>
 #include <rapidcsv.h>
@@ -494,9 +493,11 @@ void PyramidImage::write_clusters()
     // Check if the cluster is derived from some specific level, otherwise ask for the level
     auto getClusterLevel = [this](const mv::Dataset<Clusters>& clusterData) -> int32_t
     {
-        const auto clusterDataParent = clusterData->getParent();
-
-        const auto levelDataIt = _levelDatasets.find(clusterDataParent.getDatasetId());
+        // Walk back in the chain of derived data until we find the original source
+        // Any cluster is ultimately derived from a dataset which in turn must be a child of an entry in _levelDatasets
+        const auto clusterDataSource    = clusterData->getParent()->getSourceDataset<DatasetImpl>();
+        const auto& levelDataCandidate  = clusterDataSource->getDataHierarchyItem().getParent()->getDatasetReference();
+        const auto levelDataIt          = _levelDatasets.find(levelDataCandidate.getDatasetId());
 
         if (levelDataIt == _levelDatasets.end())
             return -1;
@@ -519,7 +520,7 @@ void PyramidImage::write_clusters()
     const uint32_t baseWidth = levelInfos[0].width;
     const uint32_t baseHeight = levelInfos[0].height;
     const uint32_t fromLevelWidth = levelInfos[clusterLevel].width;
-    const uint32_t fromLevelHeigh = levelInfos[clusterLevel].height;
+    const uint32_t fromLevelHeight = levelInfos[clusterLevel].height;
 
     /*
     for each cell_entry in json_file:
@@ -536,47 +537,44 @@ void PyramidImage::write_clusters()
     */
 
     // (I) Read 
-    ankerl::unordered_dense::map<std::string, CellStruct> cellMap = readCellStructs(jsonFilePath, baseWidth, baseHeight);
+    // TODO: better return a vector, so that we can iterate in parallel
+    std::vector<CellStruct> cellStructs = readCellStructs(jsonFilePath, baseWidth, baseHeight);
 
     // (II) Map cluster IDs to cells
     {
         QVector<Cluster>& dataClusters = clusterData->getClusters();
         const int64_t numClusters = static_cast<int64_t>(dataClusters.size());
+        const int64_t numCells = static_cast<int64_t>(cellStructs.size());
 
-        for (auto& [cellName, cellStruct] : cellMap)
+        auto last_pct = ProgressBarInit();
+        auto current_pct = ProgressBarInit();
+
+        std::vector<std::vector<uint32_t>> baseIndicesClusters(numClusters);
+        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+            baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
+                baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
+            ProgressBarPrint(++current_pct, last_pct, numCluster);
+        }
+        ProgressBarFinish();
+
+        for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
-#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
-            std::atomic<bool> stop{ false };
-
-#pragma omp parallel for shared(stop)
-#endif
+            auto& cellStruct = cellStructs[numCell];
             for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
-#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
-                if (stop.load(std::memory_order_relaxed)) continue;
-#endif
-                Cluster& cluster = dataClusters[numCluster];
-                const std::vector<uint32_t> baseIndices = mapLevelIdsToBase(cluster.getIndices(), clusterLevel,
-                    baseWidth, baseHeight, fromLevelWidth, fromLevelHeigh);
+                if (cellStruct.clusterId > 0) continue; // for now we assume one cluster per cell
 
                 std::vector<uint32_t> intersection;
-                std::ranges::set_intersection(cellStruct.basePixels, baseIndices,
+                std::ranges::set_intersection(cellStruct.basePixels, baseIndicesClusters[numCluster],
                     std::back_inserter(intersection));
 
-#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
-#pragma omp critical
-#endif
-                {
-                    if (!intersection.empty()) {
-                        cellStruct.clusterId = numCluster;
-#if !defined(__apple_build_version__) || !defined(__clang_major__) || __clang_major__ >= 17
-                        stop.store(true, std::memory_order_relaxed);
-#endif
-                    }
-                }
-
+                if (!intersection.empty())
+                    cellStruct.clusterId = numCluster;
 
             }
+
+            ProgressBarPrint(++current_pct, last_pct, numCells);
         }
+        ProgressBarFinish();
     }
 
     // write to csv
@@ -590,13 +588,13 @@ void PyramidImage::write_clusters()
         std::vector<std::string> imageNames;
         std::vector<int64_t> clusterIDs;
 
-        centroidX.reserve(cellMap.size());
-        centroidY.reserve(cellMap.size());
-        imageNames.reserve(cellMap.size());
-        clusterIDs.reserve(cellMap.size());
+        centroidX.reserve(cellStructs.size());
+        centroidY.reserve(cellStructs.size());
+        imageNames.reserve(cellStructs.size());
+        clusterIDs.reserve(cellStructs.size());
 
 
-        for (auto& [cellName, cellStruct] : cellMap)
+        for (auto& cellStruct : cellStructs)
         {
             centroidX.push_back(cellStruct.centroid.x);
             centroidY.push_back(cellStruct.centroid.y);

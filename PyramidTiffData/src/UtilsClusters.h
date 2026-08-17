@@ -14,11 +14,12 @@ namespace PyramidTiffData {
     {
        Point2D centroid{};
        std::vector<uint32_t> basePixels{};
+       std::string cellName{};
        std::string imageName{};
-       int64_t clusterId{};
+       int64_t clusterId = -1;
     };
 
-    ankerl::unordered_dense::map<std::string, CellStruct> readCellStructs(const std::filesystem::path& jsonFilePath,
+    std::vector<CellStruct> readCellStructs(const std::filesystem::path& jsonFilePath,
        const uint32_t baseWidth, const uint32_t baseHeight);
 
 }
