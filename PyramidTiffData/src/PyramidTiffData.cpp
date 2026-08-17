@@ -553,10 +553,11 @@ void PyramidImage::write_clusters()
         for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
             baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
                 baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
-            ProgressBarPrint(++current_pct, last_pct, numCluster);
+            ProgressBarPrint(++current_pct, last_pct, numClusters);
         }
         ProgressBarFinish();
 
+#pragma omp parallel for
         for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
             auto& cellStruct = cellStructs[numCell];
@@ -572,7 +573,11 @@ void PyramidImage::write_clusters()
 
             }
 
-            ProgressBarPrint(++current_pct, last_pct, numCells);
+
+#pragma omp critical
+            {
+                ProgressBarPrint(++current_pct, last_pct, numCells);
+            }
         }
         ProgressBarFinish();
     }
