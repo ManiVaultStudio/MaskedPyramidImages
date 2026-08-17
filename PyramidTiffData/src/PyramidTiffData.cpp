@@ -485,6 +485,7 @@ void PyramidImage::write_clusters()
     using namespace PyramidTiffData;
 
     mv::Dataset<Clusters> clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
+    fmt::println("PyramidImage::write_clusters: using cluster data from {}", clusterData->getGuiName().toStdString());
 
     // Check if _jsonFilePath exists, otherwise ask for filepath
     std::filesystem::path jsonFilePath = _jsonFilePath.toStdString();
@@ -504,6 +505,11 @@ void PyramidImage::write_clusters()
     };
 
     const int32_t clusterLevel = getClusterLevel(clusterData);
+
+    if (clusterLevel < 0) {
+        fmt::println("PyramidImage::write_clusters: clusterLevel ({}) must be > 0", clusterLevel);
+        return;
+    }
 
     // each cluster maps to level IDs
     // map the level IDs to the base resolution
@@ -577,7 +583,7 @@ void PyramidImage::write_clusters()
     {
         rapidcsv::Document csv("", rapidcsv::LabelParams(0, -1));
         const auto csvPath = changeExtension(jsonFilePath, ".csv");
-        fmt::println("Write new cluster file to {}", csvPath);
+        fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
 
         std::vector<double> centroidX;
         std::vector<double> centroidY;
