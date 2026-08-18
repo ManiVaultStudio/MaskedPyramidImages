@@ -67,6 +67,10 @@ if(MV_MIPYR_USE_OPENMP)
     endif()
 endif()
 
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    find_package(TBB REQUIRED)
+endif()
+
 # -----------------------------------------------------------------------------
 # Plugins
 # -----------------------------------------------------------------------------

@@ -110,6 +110,10 @@ if(MV_MIPYR_USE_OPENMP AND OpenMP_CXX_FOUND)
     target_link_libraries(${PYRAMIDTIFFDATA} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(${PYRAMIDTIFFDATA} PRIVATE TBB::tbb)
+endif()
+
 # -----------------------------------------------------------------------------
 # Target properties
 # -----------------------------------------------------------------------------

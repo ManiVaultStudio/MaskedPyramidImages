@@ -27,3 +27,11 @@ target_link_libraries(tifftest
         TIFF::TIFF
         jsoncons::jsoncons
 )
+
+if(MV_MIPYR_USE_OPENMP AND OpenMP_CXX_FOUND)
+    target_link_libraries(tifftest PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(tifftest PRIVATE TBB::tbb)
+endif()

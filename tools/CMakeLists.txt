@@ -39,13 +39,17 @@ target_link_libraries(pyramidstackmerge
         CLI11::CLI11
 )
 
-# -----------------------------------------------------------------------------
-# Properties
-# -----------------------------------------------------------------------------
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(pyramidstackmerge PRIVATE TBB::tbb)
+endif()
+
 if(MV_MIPYR_USE_OPENMP AND OpenMP_CXX_FOUND)
     target_link_libraries(pyramidstackmerge PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
+# -----------------------------------------------------------------------------
+# Properties
+# -----------------------------------------------------------------------------
 target_compile_features(pyramidstackmerge PRIVATE cxx_std_20)
 
 mv_check_and_set_AVX(pyramidstackmerge ${MV_MIPYR_USE_AVX})
