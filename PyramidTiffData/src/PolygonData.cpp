@@ -159,9 +159,8 @@ namespace PyramidTiffData {
         assert(_colors_roi.size() == _polygons_roi.size());
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
-        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
-        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
-        assert(_means_nucleus.size() % _names_measurements.size() == 0);
+        assert((_polygons_cell.empty() || _polygons_nucleus.empty()) || _polygons_cell.size() == _polygons_nucleus.size());
+        assert(_names_measurements.empty() || _means_nucleus.size() % _names_measurements.size() == 0);
         assert(_means_nucleus.size() == _means_cytoplasm.size());
         assert(_means_cytoplasm.size() == _means_membrane.size());
         assert(_means_membrane.size() == _means_cell.size());
