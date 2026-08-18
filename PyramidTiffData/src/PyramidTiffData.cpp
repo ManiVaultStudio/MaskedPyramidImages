@@ -186,11 +186,11 @@ void PyramidImage::init()
             else {
                 // Check for derived non-point type data 
                 // e.g. for clusters of a t-SNE of TISSUE ManiVault updates the
-                // selection internally to t-SNE and TISSUE but not the image data
-                // so that we need to trigger that update here
-                // For now, explicitly only handle Clusters
+                // selection internally to t-SNE and TISSUE but not the image data.
+                // we receive the t-SNE update here and need to retrigger the
+                // notification so that the image data is updated as well
                 const auto levelDataIt = checkIfDataIsDerived(dataset);
-                if (levelDataIt != _levelDatasets.end() && dataset->getDataType() == ClusterType)
+                if (levelDataIt != _levelDatasets.end())
                     events().notifyDatasetDataSelectionChanged(levelDataIt->second.first);
             }
 
