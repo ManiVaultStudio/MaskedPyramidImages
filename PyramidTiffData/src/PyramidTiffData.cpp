@@ -626,7 +626,6 @@ void PyramidImage::write_clusters()
         imageNames.reserve(cellStructs.size());
         clusterIDs.reserve(cellStructs.size());
 
-
         for (auto& cellStruct : cellStructs)
         {
             centroidX.push_back(cellStruct.centroid.x);
@@ -635,10 +634,10 @@ void PyramidImage::write_clusters()
             clusterIDs.push_back(cellStruct.clusterId);
         }
 
-        csv.SetColumn<double>("X", centroidX);
-        csv.SetColumn<double>("Y", centroidY);
-        csv.SetColumn<std::string>("Image", imageNames);
-        csv.SetColumn<int64_t>("Cluster", clusterIDs);
+        csv.InsertColumn<double>(0, centroidX, "X");
+        csv.InsertColumn<double>(1, centroidY, "Y");
+        csv.InsertColumn<std::string>(2, imageNames, "Image");
+        csv.InsertColumn<int64_t>(3, clusterIDs, "Cluster");
 
         csv.Save(csvPath.generic_string());
     }
