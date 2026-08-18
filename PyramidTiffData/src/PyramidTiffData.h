@@ -222,7 +222,7 @@ private:
 
     template<typename T>
     LevelDatasetsMap::iterator checkIfDataIsDerived(const mv::Dataset<T>& dataset) {
-        const auto dataSource = dataset->getParent()->getSourceDataset<mv::DatasetImpl>();
+        const auto dataSource = dataset->getParent()->template getSourceDataset<mv::DatasetImpl>();
         const auto& levelDataCandidate = dataSource->getDataHierarchyItem().getParent()->getDatasetReference();
         return _levelDatasets.find(levelDataCandidate.getDatasetId());
     }
