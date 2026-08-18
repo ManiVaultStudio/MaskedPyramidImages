@@ -67,10 +67,11 @@ namespace PyramidTiffData {
 
                     const auto maskType = getMaskType(feature);
 
-                    if (maskType != MaskType::Roi) {
+                    if (maskType == MaskType::Roi) {
                         parseName(feature, currentRoiName, getMaskString(maskType), roiNameCounter);
                     }
-                    else if (maskType != MaskType::Cell)
+
+                    if (maskType != MaskType::Cell)
                         break;
 
                     std::string cellName;
