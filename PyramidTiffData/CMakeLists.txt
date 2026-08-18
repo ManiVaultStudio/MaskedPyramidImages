@@ -102,7 +102,6 @@ target_link_libraries(${PYRAMIDTIFFDATA}
         TIFF::TIFF
         jsoncons::jsoncons
         fmt::fmt
-        unordered_dense::unordered_dense
         rapidcsv::rapidcsv
 )
 
