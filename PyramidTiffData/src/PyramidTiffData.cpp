@@ -349,14 +349,20 @@ void PyramidImage::scan() const
     _infoAction->getResolutionsAction().setOptions(resolutions);
     _infoAction->getResolutionsAction().setCurrentIndex(static_cast<int>(numLevels - 1));
     const auto& polygons = pyramidData->getPolygons();
-    _infoAction->getLoadRoisAction().setChecked(polygons.has_roi());
-    _infoAction->getLoadRoisAction().setEnabled(polygons.has_roi());
-    _infoAction->getLoadTissuesAction().setChecked(polygons.has_tissue());
-    _infoAction->getLoadTissuesAction().setEnabled(polygons.has_tissue());
-    _infoAction->getLoadCellsAction().setChecked(polygons.has_cell());
-    _infoAction->getLoadCellsAction().setEnabled(polygons.has_cell());
-    _infoAction->getLoadNucleiAction().setChecked(polygons.has_nucleus());
-    _infoAction->getLoadNucleiAction().setEnabled(polygons.has_nucleus());
+
+    auto handleToggleAction = [](mv::gui::ToggleAction& action, bool toggle)
+        {
+            action.blockSignals(true);
+            action.setChecked(toggle);
+            action.setEnabled(toggle);
+            action.blockSignals(false);
+        };
+    
+    handleToggleAction(_infoAction->getLoadRoisAction(), polygons.has_roi());
+    handleToggleAction(_infoAction->getLoadTissuesAction(), polygons.has_tissue());
+    handleToggleAction(_infoAction->getLoadCellsAction(), polygons.has_cell());
+    handleToggleAction(_infoAction->getLoadNucleiAction(), polygons.has_nucleus());
+
     _infoAction->getReadLevelAction().setEnabled(true);
 
 }
