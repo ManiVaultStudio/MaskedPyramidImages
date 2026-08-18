@@ -203,14 +203,6 @@ namespace PyramidTiffData {
         if (points.empty()) return;
         if (points.front() != points.back()) return;
 
-        // Find bounding box to limit search area
-        auto [minIt, maxIt] = std::minmax_element(MV_PYRAMID_PARALLEL_EXECUTION
-			points.begin(), points.end(),
-            [](const Point2D& a, const Point2D& b) 
-            { return a.y < b.y; });
-        const double minY = minIt->y;
-        const double maxY = maxIt->y;
-
         std::vector<uint32_t> local_indices = rasterize_polygon(points, img_width, img_height);
 
         pixel_counts.push_back(static_cast<uint32_t>(local_indices.size()));
