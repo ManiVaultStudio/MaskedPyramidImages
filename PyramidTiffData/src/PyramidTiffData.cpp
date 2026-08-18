@@ -162,7 +162,8 @@ void PyramidImage::init()
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(EventType::DatasetDataSelectionChanged));
     _eventListener.registerDataEventByType(PointType, [this](DatasetEvent* dataEvent) {
 
-        const auto& datasetID = dataEvent->getDataset().getDatasetId();
+        const mv::Dataset<DatasetImpl> dataset = dataEvent->getDataset();
+        const QString datasetID = dataset.getDatasetId();
         const auto itData = _levelDatasets.find(datasetID);
 
         switch (dataEvent->getType())
@@ -179,9 +180,19 @@ void PyramidImage::init()
         }
         case EventType::DatasetDataSelectionChanged:
         {
-            if (itData == _levelDatasets.end()) return;
-
-            selectionMapping(dataEvent->getDataset());
+            if (itData != _levelDatasets.end()) {
+                selectionMapping(dataset);
+            }
+            else {
+                // Check for derived non-point type data 
+                // e.g. for clusters of a t-SNE of TISSUE ManiVault updates the
+                // selection internally to t-SNE and TISSUE but not the image data
+                // so that we need to trigger that update here
+                // For now, explicitly only handle Clusters
+                const auto levelDataIt = checkIfDataIsDerived(dataset);
+                if (levelDataIt != _levelDatasets.end() && dataset->getDataType() == ClusterType)
+                    events().notifyDatasetDataSelectionChanged(levelDataIt->second.first);
+            }
 
             break;
         }
