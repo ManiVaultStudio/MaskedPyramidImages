@@ -495,9 +495,7 @@ void PyramidImage::write_clusters()
     {
         // Walk back in the chain of derived data until we find the original source
         // Any cluster is ultimately derived from a dataset which in turn must be a child of an entry in _levelDatasets
-        const auto clusterDataSource    = clusterData->getParent()->getSourceDataset<DatasetImpl>();
-        const auto& levelDataCandidate  = clusterDataSource->getDataHierarchyItem().getParent()->getDatasetReference();
-        const auto levelDataIt          = _levelDatasets.find(levelDataCandidate.getDatasetId());
+        const auto levelDataIt = checkIfDataIsDerived(clusterData);
 
         if (levelDataIt == _levelDatasets.end())
             return -1;
@@ -537,7 +535,6 @@ void PyramidImage::write_clusters()
     */
 
     // (I) Read 
-    // TODO: better return a vector, so that we can iterate in parallel
     std::vector<CellStruct> cellStructs = readCellStructs(jsonFilePath, baseWidth, baseHeight);
 
     // (II) Map cluster IDs to cells
@@ -549,6 +546,7 @@ void PyramidImage::write_clusters()
         auto last_pct = ProgressBarInit();
         auto current_pct = ProgressBarInit();
 
+        fmt::println("PyramidImage::write_clusters: compute cluster base indices");
         std::vector<std::vector<uint32_t>> baseIndicesClusters(numClusters);
         for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
             baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
