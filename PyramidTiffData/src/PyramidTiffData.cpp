@@ -165,34 +165,53 @@ void PyramidImage::init()
         const mv::Dataset<DatasetImpl> dataset = dataEvent->getDataset();
         const QString datasetID = dataset.getDatasetId();
         const auto itData = _levelDatasets.find(datasetID);
+        const bool isNotInLevelDatasets = itData == _levelDatasets.end();
 
         switch (dataEvent->getType())
         {
         case EventType::DatasetAboutToBeRemoved:
         {
+            if (isNotInLevelDatasets)
+                break;
 
-            if (itData != _levelDatasets.end())
-                _levelDatasets.erase(itData);
-
+            _levelDatasets.erase(itData);
             selectNone();
 
             break;
         }
         case EventType::DatasetDataSelectionChanged:
         {
-            if (itData != _levelDatasets.end()) {
-                selectionMapping(dataset);
-            }
-            else {
-                // Check for derived non-point type data 
-                // e.g. for clusters of a t-SNE of TISSUE ManiVault updates the
-                // selection internally to t-SNE and TISSUE but not the image data.
-                // we receive the t-SNE update here and need to retrigger the
-                // notification so that the image data is updated as well
-                const auto levelDataIt = checkIfDataIsDerived(dataset);
-                if (levelDataIt != _levelDatasets.end())
-                    events().notifyDatasetDataSelectionChanged(levelDataIt->second.first);
-            }
+            if (isNotInLevelDatasets)
+                break;
+
+            selectionMapping(dataset);
+
+            break;
+        }
+        default:
+            break;
+        }
+
+        });
+
+    // Check for derived non-point type data 
+    // e.g. for clusters of a t-SNE of TISSUE ManiVault updates the
+    // selection internally to t-SNE and TISSUE but not the image data.
+    // we receive the t-SNE update here and need to retrigger the
+    // notification so that the image data is updated as well
+    _eventListener.registerDataEventByType(ClusterType, [this](DatasetEvent* dataEvent) {
+
+        switch (dataEvent->getType())
+        {
+        case EventType::DatasetDataSelectionChanged:
+        {
+            const mv::Dataset<DatasetImpl> dataset = dataEvent->getDataset();
+            const auto levelDataIt = checkIfDataIsDerived(dataset);
+
+            if (levelDataIt == _levelDatasets.end())
+                break;
+
+            events().notifyDatasetDataSelectionChanged(levelDataIt->second.first);
 
             break;
         }
