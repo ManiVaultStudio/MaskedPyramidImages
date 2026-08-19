@@ -264,6 +264,54 @@ namespace PyramidTiffData {
     }
 
 
+    std::array<uint32_t, 4> coordinatesBounds(const std::vector<Point2D>& coordinates)
+    {
+        std::array<uint32_t, 4> bounds{
+            std::numeric_limits<uint32_t>::max(),
+            std::numeric_limits<uint32_t>::min(),
+            std::numeric_limits<uint32_t>::max(),
+            std::numeric_limits<uint32_t>::min()
+        };
+
+        for (const auto& coordinate : coordinates) {
+            bounds[0] = std::min(bounds[0], static_cast<uint32_t>(std::floor(coordinate.x))); // x-min
+            bounds[1] = std::max(bounds[1], static_cast<uint32_t>(std::ceil(coordinate.x)));  // x-max
+            bounds[2] = std::min(bounds[2], static_cast<uint32_t>(std::floor(coordinate.y))); // y-min
+            bounds[3] = std::max(bounds[3], static_cast<uint32_t>(std::ceil(coordinate.y)));  // y-max
+        }
+
+        return bounds;
+    }
+
+    std::array<uint32_t, 4> coordinatesBounds(const std::span<const uint32_t> flatCoordinates, const uint32_t imageWidth, const uint32_t imageHeight, const bool flip)
+    {
+        assert(imageWidth > 0);
+        assert(imageHeight > 0);
+
+        std::array<uint32_t, 4> bounds{
+            std::numeric_limits<uint32_t>::max(),
+            std::numeric_limits<uint32_t>::min(),
+            std::numeric_limits<uint32_t>::max(),
+            std::numeric_limits<uint32_t>::min()
+        };
+
+        for (const uint32_t index : flatCoordinates) {
+            assert(index < imageWidth * imageHeight);
+
+            const uint32_t x = static_cast<uint32_t>(index % imageWidth);
+            const uint32_t y = flip 
+                ? (imageHeight - 1) - static_cast<uint32_t>(index / imageWidth) 
+                : static_cast<uint32_t>(index / imageWidth);
+
+            bounds[0] = std::min(bounds[0], x);
+            bounds[1] = std::max(bounds[1], x);
+            bounds[2] = std::min(bounds[2], y);
+            bounds[3] = std::max(bounds[3], y);
+        }
+
+        return bounds;
+    }
+
     constexpr uintmax_t ProgressBarWidth = 40;
 
     void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
