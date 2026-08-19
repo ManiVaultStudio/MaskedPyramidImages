@@ -596,7 +596,7 @@ void PyramidImage::write_clusters()
 
     assert(cell_names.size() == cell_pixel_counts.size());
 
-    std::vector<std::vector<uint32_t>> cellClusterIds(numCells, {});
+    std::vector<std::vector<uint32_t>> cellClusterIds(numCells, std::vector<uint32_t>{});
 
     fmt::println("numCells {}", numCells);
     fmt::println("numClusters {}", numClusters);
