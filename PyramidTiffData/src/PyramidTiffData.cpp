@@ -30,7 +30,7 @@ using namespace mv;
 namespace
 {
     std::vector<uint32_t> mapLevelIdsToBase(std::vector<uint32_t>& levelIDs, const uint32_t fromLevelId, 
-        const uint32_t baseWidth, const uint32_t baseHeigh, const uint32_t fromLevelWidth, const uint32_t fromLevelHeigh)
+        const uint32_t baseWidth, const uint32_t baseHeight, const uint32_t fromLevelWidth, const uint32_t fromLevelHeigh)
     {
         PyramidTiffData::sortAndUnique(levelIDs);
 
@@ -38,7 +38,7 @@ namespace
             levelIDs :
             PyramidTiffData::convertSelectionToUpscaled(levelIDs,
                 fromLevelWidth, fromLevelHeigh,
-                baseWidth, baseHeigh);
+                baseWidth, baseHeight);
 
         PyramidTiffData::sortAndUnique(baseIndices);
 
