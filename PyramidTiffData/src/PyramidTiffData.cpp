@@ -350,12 +350,13 @@ void PyramidImage::scan() const
     _infoAction->getResolutionsAction().setCurrentIndex(static_cast<int>(numLevels - 1));
     const auto& polygons = pyramidData->getPolygons();
 
-    auto handleToggleAction = [](mv::gui::ToggleAction& action, bool toggle)
+    if (mv::projects().isOpeningProject() || mv::projects().isImportingProject())
+        return;
+
+    auto handleToggleAction = [](mv::gui::ToggleAction& action, const bool toggle)
         {
-            action.blockSignals(true);
             action.setChecked(toggle);
             action.setEnabled(toggle);
-            action.blockSignals(false);
         };
     
     handleToggleAction(_infoAction->getLoadRoisAction(), polygons.has_roi());
