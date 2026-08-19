@@ -384,7 +384,10 @@ void PyramidImage::read_level()
     // Convert channel names
 	std::vector<QString> channelNames;
     channelNames.reserve(lvlNumChannels);
-    for (auto& s : lvlChannelNames) channelNames.emplace_back(QString::fromStdString(s));
+    if (lvlNumChannels == lvlChannelNames.size())
+        for (auto& s : lvlChannelNames) channelNames.push_back(QString::fromStdString(s));
+    else
+        for (uint32_t i = 0; i < lvlNumChannels; i++) channelNames.push_back(std::move(QString("Channel %1").arg(i)));
 
     // Reshape to HWC (height-width-channel) from CHW (channel-height-width)
     // TODO: consider load data in HWC (height-width-channel) format instead of CHW (channel-height-width)
