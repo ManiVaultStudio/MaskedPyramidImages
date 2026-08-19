@@ -1,5 +1,6 @@
 #include "UtilsClusters.h"
 
+#include "CommonTypesAndTransformations.h"
 #include "UtilsJson.h"
 
 #include <fstream>
@@ -12,7 +13,7 @@
 namespace PyramidTiffData {
 
     std::vector<CellStruct> readCellStructs(const std::filesystem::path& jsonFilePath,
-        const uint32_t baseWidth, const uint32_t baseHeight)
+        const uint32_t baseWidth, const uint32_t baseHeight, bool flip)
     {
         std::ifstream f(jsonFilePath);
         if (!f.is_open()) {
@@ -80,14 +81,23 @@ namespace PyramidTiffData {
                     std::vector<Point2D> cellCoordinates{};
                     parseGeometry(feature, cellCoordinates, "geometry");
 
+                    auto basePixelIDs = rasterize_polygon(cellCoordinates, baseWidth, baseHeight);
+
+                    if (flip)
+                    {
+                        flipMaskIDs(basePixelIDs, baseWidth, baseHeight);
+                        sortAndUnique(basePixelIDs);
+                    }
+
                     cellStructs.push_back({
                         .centroid = computeCentroid(cellCoordinates),
-                        .basePixels = rasterize_polygon(cellCoordinates, baseWidth, baseHeight),
+                        .basePixelsBounds = coordinatesBounds(basePixelIDs, baseWidth, baseHeight, flip),
+                        .basePixels = std::move(basePixelIDs),
                         .cellName = cellName,
                         .imageName = currentRoiName,
-                        .clusterId = -1
+                        .clusterIds = {},
                         });
-                ;
+                
                     break;
                 }
                 case jsoncons::staj_event_type::end_array:
