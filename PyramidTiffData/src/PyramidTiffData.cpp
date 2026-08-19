@@ -13,12 +13,14 @@
 
 #include <fmt/base.h>
 #include <fmt/std.h>
+#include <fmt/ranges.h>
 #include <rapidcsv.h>
 
 #include <algorithm>
-#include <atomic>
 #include <filesystem>
+#include <set>
 #include <string>
+#include <unordered_map>
 
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 
@@ -461,9 +463,14 @@ void PyramidImage::read_level()
             std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
 
+            //fmt::println("cellStruct[{}, {}] pixels: {}", maskID, polygonNames[maskID], clusterIDs);
+
             assert(clusterIDs.size() == pixel_counts[maskID]);
 
             PyramidTiffData::sortAndUnique(clusterIDs);
+
+            if (maskID == 0 && clusterIDs.size() < 60)
+                fmt::println("cellStruct[{}, {}] pixels: {}", maskID, polygonNames[maskID], clusterIDs);
 
             Cluster cluster(
                 QString::fromStdString(polygonNames[maskID]),
@@ -560,6 +567,8 @@ void PyramidImage::write_clusters()
     const uint32_t fromLevelWidth = levelInfos[clusterLevel].width;
     const uint32_t fromLevelHeight = levelInfos[clusterLevel].height;
 
+    fmt::println("baseWidth {}, baseHeight {}, fromLevelWidth {}, fromLevelHeight {}", baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
+
     /*
     for each cell_entry in json_file:
         cell_name, cell_pixels <- parseEntry(cell_entry)
@@ -575,46 +584,117 @@ void PyramidImage::write_clusters()
     */
 
     // (I) Read 
-    std::vector<CellStruct> cellStructs = readCellStructs(jsonFilePath, baseWidth, baseHeight);
+    //std::vector<CellStruct> cellStructs = readCellStructs(jsonFilePath, baseWidth, baseHeight, true);
+
+    const auto& polygons = getRawData<PyramidImageData>()->getPolygons();
+    auto [cell_maskIDs, cell_pixel_counts] = polygons.getMaskCell(1.0, 1.0, baseWidth, baseHeight);
+    const auto& cell_names = polygons.names_cell();
+
+    QVector<Cluster>& dataClusters = clusterData->getClusters();
+    const int64_t numClusters = static_cast<int64_t>(dataClusters.size());
+    const int64_t numCells = static_cast<int64_t>(cell_pixel_counts.size());
+
+    assert(cell_names.size() == cell_pixel_counts.size());
+
+    std::vector<std::vector<uint32_t>> cellClusterIds(numCells, {});
+
+    fmt::println("numCells {}", numCells);
+    fmt::println("numClusters {}", numClusters);
 
     // (II) Map cluster IDs to cells
     {
-        QVector<Cluster>& dataClusters = clusterData->getClusters();
-        const int64_t numClusters = static_cast<int64_t>(dataClusters.size());
-        const int64_t numCells = static_cast<int64_t>(cellStructs.size());
+
+        std::set<uint32_t> ids;
+        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+            const auto& v = dataClusters[numCluster].getIndices();
+            ids.insert(v.begin(), v.end());
+        }
+
+        fmt::println("Size IDs: {}", ids.size());
 
         auto last_pct = ProgressBarInit();
         auto current_pct = ProgressBarInit();
 
         fmt::println("PyramidImage::write_clusters: compute cluster base indices");
-        std::vector<std::vector<uint32_t>> baseIndicesClusters(numClusters);
+        std::vector<std::vector<uint32_t>> baseIndicesClusters(numClusters); // 
+        std::vector<std::array<uint32_t, 4>> baseIndicesBounds(numClusters);
+
+        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+            auto& v = dataClusters[numCluster].getIndices();
+            PyramidTiffData::sortAndUnique(v);
+            fmt::print("{}\n", fmt::join(v.begin(), v.begin() + std::min(v.size(), size_t{ 10 }), ", "));
+
+            if (std::ranges::find(v, 852020) != v.end()) { // (first pixel in first cell cluster) -> 260, 845
+                fmt::println("Cluster: {}", numCluster);
+            }
+
+            //baseIndicesBounds[numCluster] = coordinatesBounds(dataClusters[numCluster].getIndices(), baseWidth, baseHeight);
+            //fmt::println("baseIndicesBounds[{}]: {}", numCluster, baseIndicesBounds[numCluster]);
+        }
+
         for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
             baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
                 baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
+
             ProgressBarPrint(++current_pct, last_pct, numClusters);
         }
         ProgressBarFinish();
 
-#pragma omp parallel for
+        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+            baseIndicesBounds[numCluster] = coordinatesBounds(baseIndicesClusters[numCluster], baseWidth, baseHeight);
+            fmt::println("baseIndicesBounds[{}]: {}", numCluster, baseIndicesBounds[numCluster]);
+            fmt::print("{}\n", fmt::join(baseIndicesBounds[numCluster].begin(), baseIndicesBounds[numCluster].begin() + std::min(baseIndicesBounds[numCluster].size(), size_t{ 10 }), ", "));
+
+        }
+
+        //fmt::println("cellStruct[{}] bounds: {}", 0, cellStructs[0].basePixelsBounds);
+        //fmt::println("cellStruct[{}] pixels: {}", 0, cell_maskIDs[0]);
+
+        auto boundsOverlap = [](const std::array<uint32_t, 4>& cellBounds, const std::array<uint32_t, 4>& clusterBounds) -> bool
+            {
+                // bool xOverlap    =    a.minX     <=    b.maxX        &&    b.minX        <= a.maxX;
+                const bool xOverlap = cellBounds[0] <= clusterBounds[1] && clusterBounds[0] <= cellBounds[1];
+                const bool yOverlap = cellBounds[2] <= clusterBounds[3] && clusterBounds[2] <= cellBounds[3];
+                return xOverlap && yOverlap;
+            };
+
+        fmt::println("PyramidImage::write_clusters: map clusters to cells");
+        uint32_t idsBegin = 0;
+//#pragma omp parallel for schedule(guided)
         for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
-            auto& cellStruct = cellStructs[numCell];
+            if (cell_pixel_counts[numCell] == 0)
+                continue;
+
+            const uint32_t idsEnd = idsBegin + cell_pixel_counts[numCell];
+            std::span<uint32_t> clusterIDs(cell_maskIDs.begin() + idsBegin, cell_maskIDs.begin() + idsEnd);
+            idsBegin = idsEnd;
+
+            std::ranges::sort(clusterIDs);
+
+            //fmt::println("cellStruct[{}, {}] pixels: {}", numCell, cell_names[numCell], clusterIDs);
+            //fmt::println("cellStruct[{}] bounds: {}", numCell, coordinatesBounds(clusterIDs, baseWidth, baseHeight));
+
             for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
-                if (cellStruct.clusterId > 0) continue; // for now we assume one cluster per cell
+                if (!boundsOverlap(coordinatesBounds(clusterIDs, baseWidth, baseHeight), baseIndicesBounds[numCluster]))
+                    continue;
 
                 std::vector<uint32_t> intersection;
-                std::ranges::set_intersection(cellStruct.basePixels, baseIndicesClusters[numCluster],
+                std::ranges::set_intersection(clusterIDs, baseIndicesClusters[numCluster],
                     std::back_inserter(intersection));
 
                 if (!intersection.empty())
-                    cellStruct.clusterId = numCluster;
+                    cellClusterIds[numCell].push_back(static_cast<uint32_t>(numCluster));
 
             }
 
-
-#pragma omp critical
+//#pragma omp critical
             {
                 ProgressBarPrint(++current_pct, last_pct, numCells);
+
+                if (cellClusterIds[numCell].empty()) {
+                    fmt::println("clusterIDs[{}]: {}", numCell, clusterIDs);
+                }
             }
         }
         ProgressBarFinish();
@@ -626,31 +706,49 @@ void PyramidImage::write_clusters()
         const auto csvPath = changeExtension(jsonFilePath, ".csv");
         fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
 
-        std::vector<double> centroidX;
-        std::vector<double> centroidY;
-        std::vector<std::string> imageNames;
+        //std::vector<double> centroidX;
+        //std::vector<double> centroidY;
+        //std::vector<std::string> imageNames;
         std::vector<std::string> cellNames;
         std::vector<int64_t> clusterIDs;
 
-        centroidX.reserve(cellStructs.size());
-        centroidY.reserve(cellStructs.size());
-        imageNames.reserve(cellStructs.size());
-        cellNames.reserve(cellStructs.size());
-        clusterIDs.reserve(cellStructs.size());
+        //centroidX.reserve(numCells);
+        //centroidY.reserve(numCells);
+        //imageNames.reserve(numCells);
+        cellNames.reserve(numCells);
+        clusterIDs.reserve(numCells);
 
-        for (auto& cellStruct : cellStructs)
+        auto mostFrequent = [numClusters](const std::vector<uint32_t>& v) -> uint32_t {
+            if (v.empty())
+                return std::numeric_limits<uint32_t>::max();
+
+            std::unordered_map<uint32_t, uint32_t> counts;
+            counts.reserve(numClusters);
+
+            uint32_t best = v[0], bestCount = 0;
+            for (uint32_t x : v) {
+                uint32_t c = ++counts[x];
+                if (c > bestCount) {
+                    bestCount = c;
+                    best = x;
+                }
+            }
+            return best;
+            };
+
+        for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
-            centroidX.push_back(cellStruct.centroid.x);
-            centroidY.push_back(cellStruct.centroid.y);
-            imageNames.push_back(cellStruct.imageName);
-            cellNames.push_back(cellStruct.cellName);
-            clusterIDs.push_back(cellStruct.clusterId);
+            //centroidX.push_back(cellStruct.centroid.x);
+            //centroidY.push_back(cellStruct.centroid.y);
+            //imageNames.push_back(cellStruct.imageName);
+            cellNames.push_back(cell_names[numCell]);
+            clusterIDs.push_back(mostFrequent(cellClusterIds[numCell]));
         }
 
         size_t columnIdx = 0;
-        csv.InsertColumn<double>(columnIdx++, centroidX, "X");
-        csv.InsertColumn<double>(columnIdx++, centroidY, "Y");
-        csv.InsertColumn<std::string>(columnIdx++, imageNames, "Image");
+        //csv.InsertColumn<double>(columnIdx++, centroidX, "X");
+        //csv.InsertColumn<double>(columnIdx++, centroidY, "Y");
+        //csv.InsertColumn<std::string>(columnIdx++, imageNames, "Image");
         csv.InsertColumn<int64_t>(columnIdx++, clusterIDs, "Cluster");
         csv.InsertColumn<std::string>(columnIdx++, cellNames, "Object ID");
 
