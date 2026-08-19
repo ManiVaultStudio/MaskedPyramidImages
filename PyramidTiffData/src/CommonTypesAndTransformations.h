@@ -56,6 +56,8 @@ namespace PyramidTiffData {
 
     Point2D computeCentroid(const std::vector<Point2D>& coordinates);
 
+    void flipMaskIDs(std::vector<uint32_t>& indices, const uint32_t imgWidth, const uint32_t imgHeight);
+
     std::array<uint32_t, 4> coordinatesBounds(const std::vector<Point2D>& coordinates);
     std::array<uint32_t, 4> coordinatesBounds(const std::span<const uint32_t> flatCoordinates, const uint32_t imageWidth, const uint32_t imageHeight, const bool flip = false);
     inline std::array<uint32_t, 4> coordinatesBounds(const std::vector<uint32_t>& flatCoordinates, const uint32_t imageWidth, const uint32_t imageHeight, const bool flip = false)
@@ -63,6 +65,7 @@ namespace PyramidTiffData {
         const std::span<const uint32_t> flatCoordinatesSpan(flatCoordinates.cbegin(), flatCoordinates.cend());
         return coordinatesBounds(flatCoordinatesSpan, imageWidth, imageHeight, flip);
     }
+
     void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total);
 
     void ProgressBarFinish();

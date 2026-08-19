@@ -263,6 +263,17 @@ namespace PyramidTiffData {
         return Point2D{ cx * factor, cy * factor };
     }
 
+    void flipMaskIDs(std::vector<uint32_t>& indices, const uint32_t imgWidth, const uint32_t imgHeight)
+    {
+        const int64_t numInds = static_cast<int64_t>(indices.size());
+#pragma omp parallel for
+        for (int64_t id = 0; id < numInds; ++id) {
+            const uint32_t v = indices[id];
+            const uint32_t row = v / imgWidth;
+            const uint32_t col = v % imgWidth;
+            indices[id] = (imgHeight - 1 - row) * imgWidth + col;
+        }
+    }
 
     std::array<uint32_t, 4> coordinatesBounds(const std::vector<Point2D>& coordinates)
     {

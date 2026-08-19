@@ -217,16 +217,10 @@ namespace PyramidTiffData {
         }
         ProgressBarFinish();
 
-        // flip the mask IDs
-#pragma omp parallel for
-        for (int64_t id = 0; id < static_cast<int64_t>(indices.size()); ++id) {
-            const uint32_t v = indices[id];
-            const uint32_t row = v / imgWidthScaled;
-            const uint32_t col = v % imgWidthScaled;
-            indices[id] = (imgHeightScaled - 1 - row) * imgWidthScaled + col;
-        }
 
-        assert(indices.size() == std::reduce(pixelCounts.begin(), pixelCounts.end(), 0ull));
+        flipMaskIDs(indices, imgWidthScaled, imgHeightScaled);
+
+        assert(indices.size() == std::accumulate(pixelCounts.begin(), pixelCounts.end(), 0ull));
 
         return { indices , pixelCounts };
     }
