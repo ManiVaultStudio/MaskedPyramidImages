@@ -706,21 +706,23 @@ void PyramidImage::write_clusters()
         const auto csvPath = changeExtension(jsonFilePath, ".csv");
         fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
 
-        //std::vector<double> centroidX;
-        //std::vector<double> centroidY;
-        //std::vector<std::string> imageNames;
-        std::vector<std::string> cellNames;
-        std::vector<int64_t> clusterIDs;
+        const auto& cellCentroids = polygons.centroids_cell();
+        
+        assert(cellCentroids.size() == numCells);
 
-        //centroidX.reserve(numCells);
-        //centroidY.reserve(numCells);
-        //imageNames.reserve(numCells);
-        cellNames.reserve(numCells);
+        std::vector<double> centroidX;
+        std::vector<double> centroidY;
+        std::vector<std::string> imageNames;
+        std::vector<int64_t> clusterIDs;
+        
+        centroidX.reserve(numCells);
+        centroidY.reserve(numCells);
+        imageNames.reserve(numCells);
         clusterIDs.reserve(numCells);
 
-        auto mostFrequent = [numClusters](const std::vector<uint32_t>& v) -> uint32_t {
+        auto mostFrequent = [numClusters](const std::vector<uint32_t>& v) -> int64_t {
             if (v.empty())
-                return std::numeric_limits<uint32_t>::max();
+                return std::numeric_limits<int64_t>::max();
 
             std::unordered_map<uint32_t, uint32_t> counts;
             counts.reserve(numClusters);
@@ -733,24 +735,37 @@ void PyramidImage::write_clusters()
                     best = x;
                 }
             }
-            return best;
+            return static_cast<int64_t>(best);
             };
 
         for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
-            //centroidX.push_back(cellStruct.centroid.x);
-            //centroidY.push_back(cellStruct.centroid.y);
-            //imageNames.push_back(cellStruct.imageName);
-            cellNames.push_back(cell_names[numCell]);
+            centroidX.push_back(cellCentroids[numCell].x);
+            centroidY.push_back(cellCentroids[numCell].y);
+            imageNames.push_back(polygons.roi_name_cell(numCell));
             clusterIDs.push_back(mostFrequent(cellClusterIds[numCell]));
         }
 
+        {
+            fmt::println("cluster frequency distribution");
+            std::vector<std::size_t> freq(numClusters, 0);
+
+            for (int64_t x : clusterIDs) {
+                if (x < numClusters)
+                    ++freq[x];
+            }
+
+            for (std::size_t i = 0; i < freq.size(); ++i) {
+                fmt::println("{}: {}", i, freq[i]);
+            }
+        }
+
         size_t columnIdx = 0;
-        //csv.InsertColumn<double>(columnIdx++, centroidX, "X");
-        //csv.InsertColumn<double>(columnIdx++, centroidY, "Y");
-        //csv.InsertColumn<std::string>(columnIdx++, imageNames, "Image");
+        csv.InsertColumn<double>(columnIdx++, centroidX, "X");
+        csv.InsertColumn<double>(columnIdx++, centroidY, "Y");
+        csv.InsertColumn<std::string>(columnIdx++, imageNames, "Image");
         csv.InsertColumn<int64_t>(columnIdx++, clusterIDs, "Cluster");
-        csv.InsertColumn<std::string>(columnIdx++, cellNames, "Object ID");
+        csv.InsertColumn<std::string>(columnIdx++, cell_names, "Object ID");
 
         csv.Save(csvPath.generic_string());
     }
