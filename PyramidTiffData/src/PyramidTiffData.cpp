@@ -544,9 +544,16 @@ void PyramidImage::write_clusters()
     mv::Dataset<Clusters> clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
     fmt::println("PyramidImage::write_clusters: using cluster data from {}", clusterData->getGuiName().toStdString());
 
-    // Check if _jsonFilePath exists, otherwise ask for filepath
+    // Check if _jsonFilePath exists
+    // TODO: otherwise ask for filepath
     std::filesystem::path jsonFilePath = _jsonFilePath.toStdString();
     const bool jsonExists = std::filesystem::exists(jsonFilePath);
+
+    if (!jsonExists)
+    {
+        fmt::println("PyramidImage::write_clusters: json file does not exist: {}", jsonExists);
+        return;
+    }
 
     // Check if the cluster is derived from some specific level, otherwise ask for the level
     auto getClusterLevel = [this](const mv::Dataset<Clusters>& clusterData) -> int32_t
