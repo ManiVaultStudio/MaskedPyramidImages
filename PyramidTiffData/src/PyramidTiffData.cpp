@@ -2,7 +2,6 @@
 
 #include "CommonTypesAndTransformations.h"
 #include "UtilsFiles.h"
-#include "UtilsClusters.h"
 #include "PyramidInfoAction.h"
 
 #include <event/Event.h>
@@ -21,6 +20,8 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+
+#include <QMetaObject>
 
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 
@@ -352,21 +353,33 @@ void PyramidImage::scan() const
     _infoAction->getResolutionsAction().setCurrentIndex(static_cast<int>(numLevels - 1));
     const auto& polygons = pyramidData->getPolygons();
 
+    auto enableActions = [this, &polygons]()
+    {
+        _infoAction->getLoadRoisAction().setChecked(polygons.has_roi());
+        _infoAction->getLoadRoisAction().setEnabled(polygons.has_roi());
+        _infoAction->getLoadTissuesAction().setChecked(polygons.has_tissue());
+        _infoAction->getLoadTissuesAction().setEnabled(polygons.has_tissue());
+        _infoAction->getLoadCellsAction().setChecked(polygons.has_cell());
+        _infoAction->getLoadCellsAction().setEnabled(polygons.has_cell());
+        _infoAction->getLoadNucleiAction().setChecked(polygons.has_nucleus());
+        _infoAction->getLoadNucleiAction().setEnabled(polygons.has_nucleus());
+        
+        _infoAction->getReadLevelAction().setEnabled(true);
+    };
+
     if (mv::projects().isOpeningProject() || mv::projects().isImportingProject())
-        return;
-
-    auto handleToggleAction = [](mv::gui::ToggleAction& action, const bool toggle)
-        {
-            action.setChecked(toggle);
-            action.setEnabled(toggle);
-        };
-    
-    handleToggleAction(_infoAction->getLoadRoisAction(), polygons.has_roi());
-    handleToggleAction(_infoAction->getLoadTissuesAction(), polygons.has_tissue());
-    handleToggleAction(_infoAction->getLoadCellsAction(), polygons.has_cell());
-    handleToggleAction(_infoAction->getLoadNucleiAction(), polygons.has_nucleus());
-
-    _infoAction->getReadLevelAction().setEnabled(true);
+    {
+        // Change UI elements in main thread, as project loading happens in worker threads
+        QMetaObject::invokeMethod(
+            _infoAction.get(),
+            [this, enableActions]() {
+                enableActions();
+            },
+            Qt::QueuedConnection
+        );
+    }
+    else
+        enableActions();
 
 }
 
@@ -832,22 +845,28 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
     _tiffFilePath = variantMap[SID_tiffFilePath].toString();
     _jsonFilePath = variantMap[SID_jsonFilePath].toString();
 
-    if (std::filesystem::exists(_tiffFilePath.toStdString()) && std::filesystem::exists(_jsonFilePath.toStdString())) {
+    if (std::filesystem::exists(_tiffFilePath.toStdString()) 
+        && std::filesystem::exists(_jsonFilePath.toStdString())) {
         scan();
     }
     else {
-        _infoAction->getReadLevelAction().setDisabled(true);
-        _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
-        _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
+        // Change UI elements in main thread, as project loading happens in worker threads
+        QMetaObject::invokeMethod(
+            _infoAction.get(),
+            [this]() {
+                _infoAction->getReadLevelAction().setDisabled(true);
+                _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
+                _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
+            },
+            Qt::QueuedConnection
+        );
     }
 
-    {
-        for (const auto [dataID, selectionCount] : variantMap[SID_levelDatasets].toMap().asKeyValueRange()) {
-            _levelDatasets[dataID] = std::make_pair(
-                mv::data().getDataset(dataID),
-                static_cast<uint32_t>(selectionCount.toUInt())
-            );
-        }
+    for (const auto [dataID, selectionCount] : variantMap[SID_levelDatasets].toMap().asKeyValueRange()) {
+        _levelDatasets[dataID] = std::make_pair(
+            mv::data().getDataset(dataID),
+            static_cast<uint32_t>(selectionCount.toUInt())
+        );
     }
 
     events().notifyDatasetDataChanged(this);
