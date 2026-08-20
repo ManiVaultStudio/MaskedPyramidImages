@@ -620,19 +620,6 @@ void PyramidImage::write_clusters()
         std::vector<std::array<uint32_t, 4>> baseIndicesBounds(numClusters);
 
         for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
-            auto& v = dataClusters[numCluster].getIndices();
-            PyramidTiffData::sortAndUnique(v);
-            fmt::print("{}\n", fmt::join(v.begin(), v.begin() + std::min(v.size(), size_t{ 10 }), ", "));
-
-            if (std::ranges::find(v, 852020) != v.end()) { // (first pixel in first cell cluster) -> 260, 845
-                fmt::println("Cluster: {}", numCluster);
-            }
-
-            //baseIndicesBounds[numCluster] = coordinatesBounds(dataClusters[numCluster].getIndices(), baseWidth, baseHeight);
-            //fmt::println("baseIndicesBounds[{}]: {}", numCluster, baseIndicesBounds[numCluster]);
-        }
-
-        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
             baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
                 baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
 
@@ -644,11 +631,7 @@ void PyramidImage::write_clusters()
             baseIndicesBounds[numCluster] = coordinatesBounds(baseIndicesClusters[numCluster], baseWidth, baseHeight);
             fmt::println("baseIndicesBounds[{}]: {}", numCluster, baseIndicesBounds[numCluster]);
             fmt::print("{}\n", fmt::join(baseIndicesBounds[numCluster].begin(), baseIndicesBounds[numCluster].begin() + std::min(baseIndicesBounds[numCluster].size(), size_t{ 10 }), ", "));
-
         }
-
-        //fmt::println("cellStruct[{}] bounds: {}", 0, cellStructs[0].basePixelsBounds);
-        //fmt::println("cellStruct[{}] pixels: {}", 0, cell_maskIDs[0]);
 
         auto boundsOverlap = [](const std::array<uint32_t, 4>& cellBounds, const std::array<uint32_t, 4>& clusterBounds) -> bool
             {
@@ -659,6 +642,7 @@ void PyramidImage::write_clusters()
             };
 
         fmt::println("PyramidImage::write_clusters: map clusters to cells");
+
         uint32_t idsBegin = 0;
 //#pragma omp parallel for schedule(guided)
         for (int64_t numCell = 0; numCell < numCells; ++numCell)
