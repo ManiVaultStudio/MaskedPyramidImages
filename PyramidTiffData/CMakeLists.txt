@@ -48,13 +48,11 @@ set(PYRAMID_TIFF_SOURCES
 set(PYRAMID_UTILS_HEADERS
     src/UtilsJson.h
     src/UtilsFiles.h
-    src/UtilsClusters.h
 )
 
 set(PYRAMID_UTILS_SOURCES
     src/UtilsJson.cpp
     src/UtilsFiles.cpp
-    src/UtilsClusters.cpp
 )
 
 set(AUX
