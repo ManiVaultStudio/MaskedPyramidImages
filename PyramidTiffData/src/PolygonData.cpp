@@ -54,6 +54,9 @@ namespace PyramidTiffData {
         try {
             jsoncons::json_stream_cursor cursor(f);
 
+            int64_t roi_counter = 0;            // ROI is either before all cells or after
+            bool roi_before_cells = true;
+
             int unnamed_roi_counter = 0;
             int unnamed_tissue_counter = 0;
             int unnamed_cell_counter = 0;
@@ -98,6 +101,7 @@ namespace PyramidTiffData {
 
                     if (maskType == MaskType::Roi)
                     {
+                        roi_counter++;
                         parseName(feature, _names_roi, prefix_roi, unnamed_roi_counter);
                         parseGeometry(feature, _polygons_roi);
                         parseColor(feature, _colors_roi);
@@ -110,9 +114,15 @@ namespace PyramidTiffData {
                     }
                     else if (maskType == MaskType::Cell)
                     {
+                        if (roi_counter == 0 && _names_cell.empty())
+                            roi_before_cells = false;
+
                         parseNameID(feature, _names_cell, prefix_cell, unnamed_cell_counter);
                         parseGeometry(feature, _polygons_cell);
                         parseGeometryNucleus(feature, _polygons_nucleus);
+
+                        _centroids_cell.push_back(computeCentroid(_polygons_cell.back()));
+                        _roi_nums_cell.push_back(roi_before_cells ? roi_counter - 1 : roi_before_cells);
 
                         parseMeasurementNames(feature, _names_measurements);
                         parseMeasurementMeans(feature, _means_nucleus, "Nucleus");
@@ -160,6 +170,7 @@ namespace PyramidTiffData {
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
         assert((_polygons_cell.empty() || _polygons_nucleus.empty()) || _polygons_cell.size() == _polygons_nucleus.size());
+        assert(_centroids_cell.empty() || _polygons_cell.size() == _centroids_cell.size());
         assert(_names_measurements.empty() || _means_nucleus.size() % _names_measurements.size() == 0);
         assert(_means_nucleus.size() == _means_cytoplasm.size());
         assert(_means_cytoplasm.size() == _means_membrane.size());
