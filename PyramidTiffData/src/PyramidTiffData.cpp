@@ -13,13 +13,11 @@
 #include <fmt/base.h>
 #include <fmt/std.h>
 #include <fmt/ranges.h>
-#include <rapidcsv.h>
 
 #include <algorithm>
 #include <filesystem>
 #include <set>
 #include <string>
-#include <unordered_map>
 
 #include <QMetaObject>
 
@@ -597,13 +595,12 @@ void PyramidImage::write_clusters()
 
     const auto& polygons = getRawData<PyramidImageData>()->getPolygons();
     auto [cell_maskIDs, cell_pixel_counts] = polygons.getMaskCell(1.0, 1.0, baseWidth, baseHeight);
-    const auto& cell_names = polygons.names_cell();
 
     QVector<Cluster>& dataClusters = clusterData->getClusters();
     const int64_t numClusters = static_cast<int64_t>(dataClusters.size());
     const int64_t numCells = static_cast<int64_t>(cell_pixel_counts.size());
 
-    assert(cell_names.size() == cell_pixel_counts.size());
+    assert(polygons.names_cell().size() == cell_pixel_counts.size());
 
     std::vector<std::vector<uint32_t>> cellClusterIds(numCells, std::vector<uint32_t>{});
 
@@ -665,8 +662,6 @@ void PyramidImage::write_clusters()
 
             std::ranges::sort(clusterIDs);
 
-            fmt::println("{}: {}", numCell, clusterIDs[0]);
-
             for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
                 if (!boundsOverlap(coordinatesBounds(clusterIDs, baseWidth, baseHeight), baseIndicesBounds[numCluster]))
                     continue;
@@ -693,74 +688,9 @@ void PyramidImage::write_clusters()
     }
 
     // write to csv
-    {
-        rapidcsv::Document csv("", rapidcsv::LabelParams(0, -1));
-        const auto csvPath = changeExtension(jsonFilePath, ".csv");
-        fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
-
-        const auto& cellCentroids = polygons.centroids_cell();
-        
-        assert(cellCentroids.size() == numCells);
-
-        std::vector<double> centroidX;
-        std::vector<double> centroidY;
-        std::vector<std::string> imageNames;
-        std::vector<int64_t> clusterIDs;
-        
-        centroidX.reserve(numCells);
-        centroidY.reserve(numCells);
-        imageNames.reserve(numCells);
-        clusterIDs.reserve(numCells);
-
-        auto mostFrequent = [numClusters](const std::vector<uint32_t>& v) -> int64_t {
-            if (v.empty())
-                return std::numeric_limits<int64_t>::max();
-
-            std::unordered_map<uint32_t, uint32_t> counts;
-            counts.reserve(numClusters);
-
-            uint32_t best = v[0], bestCount = 0;
-            for (uint32_t x : v) {
-                uint32_t c = ++counts[x];
-                if (c > bestCount) {
-                    bestCount = c;
-                    best = x;
-                }
-            }
-            return static_cast<int64_t>(best);
-            };
-
-        for (int64_t numCell = 0; numCell < numCells; ++numCell)
-        {
-            centroidX.push_back(cellCentroids[numCell].x);
-            centroidY.push_back(cellCentroids[numCell].y);
-            imageNames.push_back(polygons.roi_name_cell(numCell));
-            clusterIDs.push_back(mostFrequent(cellClusterIds[numCell]));
-        }
-
-        {
-            fmt::println("cluster frequency distribution");
-            std::vector<std::size_t> freq(numClusters, 0);
-
-            for (int64_t x : clusterIDs) {
-                if (x < numClusters)
-                    ++freq[x];
-            }
-
-            for (std::size_t i = 0; i < freq.size(); ++i) {
-                fmt::println("{}: {}", i, freq[i]);
-            }
-        }
-
-        size_t columnIdx = 0;
-        csv.InsertColumn<double>(columnIdx++, centroidX, "X");
-        csv.InsertColumn<double>(columnIdx++, centroidY, "Y");
-        csv.InsertColumn<std::string>(columnIdx++, imageNames, "Image");
-        csv.InsertColumn<int64_t>(columnIdx++, clusterIDs, "Cluster");
-        csv.InsertColumn<std::string>(columnIdx++, cell_names, "Object ID");
-
-        csv.Save(csvPath.generic_string());
-    }
+    const auto csvPath = changeExtension(jsonFilePath, ".csv");
+    fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
+    writeClusterIdsToCsv(csvPath, numCells, numClusters, polygons, cellClusterIds);
 
 }
 
