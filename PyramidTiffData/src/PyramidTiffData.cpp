@@ -616,15 +616,6 @@ void PyramidImage::write_clusters()
 
     // (II) Map cluster IDs to cells
     {
-
-        std::set<uint32_t> ids;
-        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
-            const auto& v = dataClusters[numCluster].getIndices();
-            ids.insert(v.begin(), v.end());
-        }
-
-        fmt::println("Size IDs: {}", ids.size());
-
         auto last_pct = ProgressBarInit();
         auto current_pct = ProgressBarInit();
 
@@ -698,7 +689,6 @@ void PyramidImage::write_clusters()
     const auto csvPath = changeExtension(jsonFilePath, ".csv");
     fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
     writeClusterIdsToCsv(csvPath, numCells, numClusters, polygons, cellClusterIds);
-
 }
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()
