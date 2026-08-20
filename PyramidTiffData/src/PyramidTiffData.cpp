@@ -656,16 +656,22 @@ void PyramidImage::write_clusters()
 
         fmt::println("PyramidImage::write_clusters: map clusters to cells");
 
-        uint32_t idsBegin = 0;
-//#pragma omp parallel for schedule(guided)
+        // precompute offsets for parallel looping
+        std::vector<uint32_t> offsets(numCells + 1, 0);
+        std::exclusive_scan(cell_pixel_counts.begin(), cell_pixel_counts.end(),
+            offsets.begin(), 0u);
+        offsets[numCells] = offsets[numCells - 1] + cell_pixel_counts[numCells - 1];
+
+#pragma omp parallel for schedule(guided)
         for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
             if (cell_pixel_counts[numCell] == 0)
                 continue;
 
+            const uint32_t idsBegin = offsets[numCell];
             const uint32_t idsEnd = idsBegin + cell_pixel_counts[numCell];
+
             std::span<uint32_t> clusterIDs(cell_maskIDs.begin() + idsBegin, cell_maskIDs.begin() + idsEnd);
-            idsBegin = idsEnd;
 
             std::ranges::sort(clusterIDs);
 
@@ -685,7 +691,7 @@ void PyramidImage::write_clusters()
 
             }
 
-//#pragma omp critical
+#pragma omp critical
             {
                 ProgressBarPrint(++current_pct, last_pct, numCells);
 
