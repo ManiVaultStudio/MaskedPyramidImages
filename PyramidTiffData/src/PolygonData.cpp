@@ -194,29 +194,29 @@ namespace PyramidTiffData {
         std::vector<uint32_t> pixelCounts{};
 
         auto scale_coords = [scaleFactorWidth, scaleFactorHeight](const std::vector<Point2D>& points) -> std::vector<Point2D> {
-            std::vector<Point2D> points_scaled(points.size());
+            std::vector<Point2D> pointsScaled(points.size());
 
+            const int64_t numPoints = static_cast<int64_t>(points.size());
 #pragma omp parallel for
-            for (int64_t i = 0; i < static_cast<int64_t>(points.size()); ++i) {
-                points_scaled[i] = {
+            for (int64_t i = 0; i < numPoints; ++i) {
+                pointsScaled[i] = {
                     .x = std::round(points[i].x * scaleFactorWidth),
                     .y = std::round(points[i].y * scaleFactorHeight)
                 };
             }
 
-            return points_scaled;
+            return pointsScaled;
             };
 
-        auto last_pct = ProgressBarInit();
+        auto lastPct = ProgressBarInit();
         std::uintmax_t currentID = 0;
         for (const auto& coords : polygons) {
             const auto& coords_scaled = (scaleFactorWidth == 1.0) ? coords : scale_coords(coords);
             rasterize_polygon(coords_scaled, imgWidthScaled, imgHeightScaled, indices, pixelCounts);
 
-            ProgressBarPrint(currentID++, last_pct, polygons.size());
+            ProgressBarPrint(currentID++, lastPct, polygons.size());
         }
         ProgressBarFinish();
-
 
         flipMaskIDs(indices, imgWidthScaled, imgHeightScaled);
 
