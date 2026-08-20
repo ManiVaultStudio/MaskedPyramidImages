@@ -583,13 +583,9 @@ void PyramidImage::write_clusters()
     fmt::println("baseWidth {}, baseHeight {}, fromLevelWidth {}, fromLevelHeight {}", baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
 
     /*
-    for each cell_entry in json_file:
-        cell_name, cell_pixels <- parseEntry(cell_entry)
-        
     for each cell:
         cell_clusters <- {}
         for each cluster in clusterData:
-            cluster_pixels <- mapClusterToBase(cluster)
             cell_clusters <- + overlap(cluster_pixels, cell_pixels)
     
     for each cell_entry in json_file:
@@ -635,16 +631,10 @@ void PyramidImage::write_clusters()
         for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
             baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
                 baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
-
+            baseIndicesBounds[numCluster] = coordinatesBounds(baseIndicesClusters[numCluster], baseWidth, baseHeight);
             ProgressBarPrint(++current_pct, last_pct, numClusters);
         }
         ProgressBarFinish();
-
-        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
-            baseIndicesBounds[numCluster] = coordinatesBounds(baseIndicesClusters[numCluster], baseWidth, baseHeight);
-            fmt::println("baseIndicesBounds[{}]: {}", numCluster, baseIndicesBounds[numCluster]);
-            fmt::print("{}\n", fmt::join(baseIndicesBounds[numCluster].begin(), baseIndicesBounds[numCluster].begin() + std::min(baseIndicesBounds[numCluster].size(), size_t{ 10 }), ", "));
-        }
 
         auto boundsOverlap = [](const std::array<uint32_t, 4>& cellBounds, const std::array<uint32_t, 4>& clusterBounds) -> bool
             {
@@ -675,8 +665,7 @@ void PyramidImage::write_clusters()
 
             std::ranges::sort(clusterIDs);
 
-            //fmt::println("cellStruct[{}, {}] pixels: {}", numCell, cell_names[numCell], clusterIDs);
-            //fmt::println("cellStruct[{}] bounds: {}", numCell, coordinatesBounds(clusterIDs, baseWidth, baseHeight));
+            fmt::println("{}: {}", numCell, clusterIDs[0]);
 
             for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
                 if (!boundsOverlap(coordinatesBounds(clusterIDs, baseWidth, baseHeight), baseIndicesBounds[numCluster]))
