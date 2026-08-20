@@ -649,7 +649,7 @@ void PyramidImage::write_clusters()
             offsets.begin(), 0u);
         offsets[numCells] = offsets[numCells - 1] + cell_pixel_counts[numCells - 1];
 
-#pragma omp parallel for schedule(guided)
+#pragma omp parallel for
         for (int64_t numCell = 0; numCell < numCells; ++numCell)
         {
             if (cell_pixel_counts[numCell] == 0)
