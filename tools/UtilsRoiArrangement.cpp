@@ -48,10 +48,10 @@ namespace PyramidTiffData {
         std::unordered_map<std::string, std::vector<Roi>> nuclei;
         std::unordered_map<std::string, std::vector<std::string>> measurements;
 
-        int unnamed_roi_counter = 0;
-        int unnamed_roi_counter_id = 0;
-        int unnamed_tissue_counter = 0;
-        int unnamed_cell_counter = 0;
+        int64_t unnamed_roi_counter = 0;
+        int64_t unnamed_roi_counter_id = 0;
+        int64_t unnamed_tissue_counter = 0;
+        int64_t unnamed_cell_counter = 0;
         std::string current_roi_name;
         bool in_features_array = false;
 

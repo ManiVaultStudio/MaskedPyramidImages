@@ -57,9 +57,9 @@ namespace PyramidTiffData {
             int64_t roi_counter = 0;            // ROI is either before all cells or after
             bool roi_before_cells = true;
 
-            int unnamed_roi_counter = 0;
-            int unnamed_tissue_counter = 0;
-            int unnamed_cell_counter = 0;
+            int64_t unnamed_roi_counter = 0;
+            int64_t unnamed_tissue_counter = 0;
+            int64_t unnamed_cell_counter = 0;
             const std::string prefix_roi = getMaskString(MaskType::Roi);
             const std::string prefix_tissue = getMaskString(MaskType::Tissue);
             const std::string prefix_cell = getMaskString(MaskType::Cell);

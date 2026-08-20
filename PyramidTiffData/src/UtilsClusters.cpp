@@ -31,8 +31,8 @@ namespace PyramidTiffData {
 
             bool in_features_array = false;
 
-            int cellNameCounter = 0;
-            int roiNameCounter = 0;
+            int64_t cellNameCounter = 0;
+            int64_t roiNameCounter = 0;
             std::string currentRoiName;
 
             const uintmax_t total_bytes = std::filesystem::file_size(jsonFilePath);

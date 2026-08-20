@@ -57,7 +57,7 @@ namespace PyramidTiffData {
         const jsoncons::ojson& feat,
         std::string& name,
         const std::string& prefix,
-        int& counter)
+        int64_t& counter)
     {
         if (feat.at("properties").contains("name")) {
             name = feat.at("properties").at("name").as<std::string>();
@@ -71,7 +71,7 @@ namespace PyramidTiffData {
         const jsoncons::ojson& feat,
         std::string& name,
         const std::string& prefix,
-        int& counter)
+        int64_t& counter)
     {
         if (feat.contains("id")) {
             name = feat.at("id").as<std::string>();
