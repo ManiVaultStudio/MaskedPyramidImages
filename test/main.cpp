@@ -23,8 +23,9 @@ using namespace jsoncons;
 
 namespace utils
 {
-    static void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath, int file_number) {
-        const auto filename = outfilepath / fmt::format("output_{}.geojson", file_number);
+    static void create_output_file(const std::vector<ojson>& features_buffer, const std::filesystem::path& outfilepath,
+        const std::filesystem::path& outfilename, const std::string& idString, int file_number) {
+        const auto filename = outfilepath / fmt::format("{}_{}_{}.geojson", idString, outfilename, file_number);
 
         std::ofstream output_file(filename);
         json_stream_encoder encoder(output_file);
@@ -103,7 +104,7 @@ namespace utils
 
                     // When buffer reaches MAX_FEATURES_PER_FILE features, write to file and reset
                     if (features_buffer.size() >= MAX_FEATURES_PER_FILE) {
-                        utils::create_output_file(features_buffer, json_path.parent_path(), file_number);
+                        create_output_file(features_buffer, json_path.parent_path(), json_path.filename(), "split", file_number);
                         features_buffer.clear();
                         file_number++;
                     }
@@ -116,7 +117,7 @@ namespace utils
                 if (in_features_array) {
                     // Write remaining features to a file at the end
                     if (!features_buffer.empty()) {
-                        utils::create_output_file(features_buffer, json_path.parent_path(), file_number);
+                        create_output_file(features_buffer, json_path.parent_path(), json_path.filename(), "split", file_number);
                         features_buffer.clear();
                     }
                     in_features_array = false;
@@ -203,7 +204,7 @@ namespace utils
 
         input_file.close();
 
-        utils::create_output_file(features_buffer, json_path.parent_path(), 99);
+        create_output_file(features_buffer, json_path.parent_path(), json_path.filename(), "ROIs", 0);
     }
 
     static void copy_tiff_file(const std::filesystem::path& img_path, const std::filesystem::path& json_path)
