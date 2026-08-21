@@ -47,10 +47,12 @@ set(PYRAMID_TIFF_SOURCES
 
 set(PYRAMID_UTILS_HEADERS
     src/UtilsJson.h
+    src/UtilsFiles.h
 )
 
 set(PYRAMID_UTILS_SOURCES
     src/UtilsJson.cpp
+    src/UtilsFiles.cpp
 )
 
 set(AUX
@@ -98,10 +100,15 @@ target_link_libraries(${PYRAMIDTIFFDATA}
         TIFF::TIFF
         jsoncons::jsoncons
         fmt::fmt
+        rapidcsv::rapidcsv
 )
 
 if(MV_MIPYR_USE_OPENMP AND OpenMP_CXX_FOUND)
     target_link_libraries(${PYRAMIDTIFFDATA} PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(${PYRAMIDTIFFDATA} PRIVATE TBB::tbb)
 endif()
 
 # -----------------------------------------------------------------------------

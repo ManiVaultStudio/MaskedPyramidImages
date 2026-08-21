@@ -85,6 +85,8 @@ private:
 class PYRAMIDTIFFDATA_EXPORT PyramidImage : public mv::DatasetImpl
 {
     Q_OBJECT
+    using LevelDatasetsMap = std::unordered_map<QString, std::pair<mv::Dataset<>, uint32_t>>;
+
 public:
 	PyramidImage() = delete;
     explicit PyramidImage(const QString& dataName, const bool mayUnderive = true, const QString& guid = "");
@@ -124,7 +126,9 @@ public:
 
     void scan() const;
 
+private:
     void read_level();
+    void write_clusters();
 
 public: // Getter and Setter
     [[nodiscard]] QString getTiffFilePath() const {
@@ -216,13 +220,21 @@ private:
     static const QString SID_tiffFilePath;
     static const QString SID_jsonFilePath;
 
+    template<typename T>
+    LevelDatasetsMap::iterator checkIfDataIsDerived(const mv::Dataset<T>& dataset) {
+        const auto dataSource = dataset->getParent()->template getSourceDataset<mv::DatasetImpl>();
+        const auto& levelDataCandidate = dataSource->getDataHierarchyItem().getParent()->getDatasetReference();
+        return _levelDatasets.find(levelDataCandidate.getDatasetId());
+    }
+
 private:
+
     QString _tiffFilePath = {};
     QString _jsonFilePath = {};
-    QSharedPointer<PyramidInfoAction> _infoAction = {};                                     /** Shared pointer to info action */
-    std::unordered_map<QString, std::pair<mv::Dataset<>, uint32_t>> _levelDatasets = {};    /** Helper data set for selection */
+    QSharedPointer<PyramidInfoAction> _infoAction = {};         /** Shared pointer to info action */
+    LevelDatasetsMap _levelDatasets = {};                       /** Helper data set for selection */
     uint32_t _selectionCount = 0;
-    mv::EventListener _eventListener = {};                                                  /** Listen to ManiVault events */
+    mv::EventListener _eventListener = {};                      /** Listen to ManiVault events */
 };
 
 // =============================================================================

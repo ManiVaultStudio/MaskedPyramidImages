@@ -53,13 +53,13 @@ namespace PyramidTiffData {
         const jsoncons::ojson& feat,
         std::string& name,
         const std::string& prefix,
-        int& counter);
+        int64_t& counter);
 
     inline void parseName(
         const jsoncons::ojson& feat,
         std::vector<std::string>& names,
         const std::string& prefix,
-        int& counter)
+        int64_t& counter)
     {
         std::string& name = names.emplace_back();
         parseName(feat, name, prefix, counter);
@@ -69,13 +69,13 @@ namespace PyramidTiffData {
         const jsoncons::ojson& feat,
         std::string& names,
         const std::string& prefix,
-        int& counter);
+        int64_t& counter);
 
     inline void parseNameID(
         const jsoncons::ojson& feat,
         std::vector<std::string>& names,
         const std::string& prefix,
-        int& counter)
+        int64_t& counter)
     {
         std::string& name = names.emplace_back();
         parseNameID(feat, name, prefix, counter);

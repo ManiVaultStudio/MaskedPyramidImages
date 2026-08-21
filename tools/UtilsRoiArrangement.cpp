@@ -22,35 +22,6 @@
 
 namespace PyramidTiffData {
 
-    // =============================================================================
-	// Helper
-	// =============================================================================
-
-    namespace {
-        constexpr uintmax_t ProgressBarWidth = 40;
-
-        inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
-        {
-            const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
-            if (pct != previous_pct) {
-                previous_pct = pct;
-                const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
-                fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
-                [[maybe_unused]] int success = std::fflush(stdout);
-            }
-
-        }
-
-        inline void ProgressBarFinish()
-        {
-            fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
-        }
-
-        inline std::uintmax_t ProgressBarInit()
-        {
-            return 0;
-        }
-    }
 
     // =============================================================================
     // Mask JSON loading
@@ -77,10 +48,10 @@ namespace PyramidTiffData {
         std::unordered_map<std::string, std::vector<Roi>> nuclei;
         std::unordered_map<std::string, std::vector<std::string>> measurements;
 
-        int unnamed_roi_counter = 0;
-        int unnamed_roi_counter_id = 0;
-        int unnamed_tissue_counter = 0;
-        int unnamed_cell_counter = 0;
+        int64_t unnamed_roi_counter = 0;
+        int64_t unnamed_roi_counter_id = 0;
+        int64_t unnamed_tissue_counter = 0;
+        int64_t unnamed_cell_counter = 0;
         std::string current_roi_name;
         bool in_features_array = false;
 

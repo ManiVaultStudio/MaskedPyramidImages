@@ -1,5 +1,7 @@
 #include "PyramidTiffData.h"
 
+#include "CommonTypesAndTransformations.h"
+#include "UtilsFiles.h"
 #include "PyramidInfoAction.h"
 
 #include <event/Event.h>
@@ -9,16 +11,41 @@
 #include <ClusterData/ClusterData.h>
 
 #include <fmt/base.h>
+#include <fmt/std.h>
+#include <fmt/ranges.h>
 
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
-#include <ranges>
+#include <set>
 #include <string>
+
+#include <QMetaObject>
 
 Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
 
 using namespace mv;
+
+// =============================================================================
+// Helper
+// =============================================================================
+namespace
+{
+    std::vector<uint32_t> mapLevelIdsToBase(std::vector<uint32_t>& levelIDs, const uint32_t fromLevelId, 
+        const uint32_t baseWidth, const uint32_t baseHeight, const uint32_t fromLevelWidth, const uint32_t fromLevelHeigh)
+    {
+        PyramidTiffData::sortAndUnique(levelIDs);
+
+        auto baseIndices = (fromLevelId == 0) ?
+            levelIDs :
+            PyramidTiffData::convertSelectionToUpscaled(levelIDs,
+                fromLevelWidth, fromLevelHeigh,
+                baseWidth, baseHeight);
+
+        PyramidTiffData::sortAndUnique(baseIndices);
+
+        return baseIndices;
+    }
+}
 
 // =============================================================================
 // Data (Raw)
@@ -130,31 +157,62 @@ void PyramidImage::init()
     addAction(*_infoAction);
 
     connect(&_infoAction->getReadLevelAction(), &gui::TriggerAction::triggered, this, &PyramidImage::read_level);
+    connect(&_infoAction->getWriteClustersAction(), &gui::TriggerAction::triggered, this, &PyramidImage::write_clusters);
 
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(mv::EventType::DatasetAboutToBeRemoved));
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(EventType::DatasetDataSelectionChanged));
     _eventListener.registerDataEventByType(PointType, [this](DatasetEvent* dataEvent) {
 
-        const auto& datasetID = dataEvent->getDataset().getDatasetId();
+        const mv::Dataset<DatasetImpl> dataset = dataEvent->getDataset();
+        const QString datasetID = dataset.getDatasetId();
         const auto itData = _levelDatasets.find(datasetID);
+        const bool isNotInLevelDatasets = itData == _levelDatasets.end();
 
         switch (dataEvent->getType())
         {
         case EventType::DatasetAboutToBeRemoved:
         {
+            if (isNotInLevelDatasets)
+                break;
 
-            if (itData != _levelDatasets.end())
-                _levelDatasets.erase(itData);
-
+            _levelDatasets.erase(itData);
             selectNone();
 
             break;
         }
         case EventType::DatasetDataSelectionChanged:
         {
-            if (itData == _levelDatasets.end()) return;
+            if (isNotInLevelDatasets)
+                break;
 
-            selectionMapping(dataEvent->getDataset());
+            selectionMapping(dataset);
+
+            break;
+        }
+        default:
+            break;
+        }
+
+        });
+
+    // Check for derived non-point type data 
+    // e.g. for clusters of a t-SNE of TISSUE ManiVault updates the
+    // selection internally to t-SNE and TISSUE but not the image data.
+    // we receive the t-SNE update here and need to retrigger the
+    // notification so that the image data is updated as well
+    _eventListener.registerDataEventByType(ClusterType, [this](DatasetEvent* dataEvent) {
+
+        switch (dataEvent->getType())
+        {
+        case EventType::DatasetDataSelectionChanged:
+        {
+            const mv::Dataset<DatasetImpl> dataset = dataEvent->getDataset();
+            const auto levelDataIt = checkIfDataIsDerived(dataset);
+
+            if (levelDataIt == _levelDatasets.end())
+                break;
+
+            events().notifyDatasetDataSelectionChanged(levelDataIt->second.first);
 
             break;
         }
@@ -202,16 +260,8 @@ void PyramidImage::selectionMapping(const mv::Dataset<>& selectionInputData)
 
 	// Map from level to base
     mv::Dataset<Points> selectionIDs = selectionInputData->getSelection();
-
-    PyramidTiffData::sortAndUnique(selectionIDs->indices);
-
-    auto baseIndices = (fromLevel == 0) ?
-        selectionIDs->indices :
-        PyramidTiffData::convertSelectionToUpscaled(selectionIDs->indices,
-            fromLevelWidth, fromLevelHeigh, 
-            baseWidth, baseHeigh);
-
-    PyramidTiffData::sortAndUnique(baseIndices);
+    const auto baseIndices = mapLevelIdsToBase(selectionIDs->indices, fromLevel,
+        baseWidth, baseHeigh, fromLevelWidth, fromLevelHeigh);
 
     // Map from base to all other levels
     for (const auto& [toLevelID, toLevelPair] : _levelDatasets)
@@ -300,15 +350,34 @@ void PyramidImage::scan() const
     _infoAction->getResolutionsAction().setOptions(resolutions);
     _infoAction->getResolutionsAction().setCurrentIndex(static_cast<int>(numLevels - 1));
     const auto& polygons = pyramidData->getPolygons();
-    _infoAction->getLoadRoisAction().setChecked(polygons.has_roi());
-    _infoAction->getLoadRoisAction().setEnabled(polygons.has_roi());
-    _infoAction->getLoadTissuesAction().setChecked(polygons.has_tissue());
-    _infoAction->getLoadTissuesAction().setEnabled(polygons.has_tissue());
-    _infoAction->getLoadCellsAction().setChecked(polygons.has_cell());
-    _infoAction->getLoadCellsAction().setEnabled(polygons.has_cell());
-    _infoAction->getLoadNucleiAction().setChecked(polygons.has_nucleus());
-    _infoAction->getLoadNucleiAction().setEnabled(polygons.has_nucleus());
-    _infoAction->getReadLevelAction().setEnabled(true);
+
+    auto enableActions = [this, &polygons]()
+    {
+        _infoAction->getLoadRoisAction().setChecked(polygons.has_roi());
+        _infoAction->getLoadRoisAction().setEnabled(polygons.has_roi());
+        _infoAction->getLoadTissuesAction().setChecked(polygons.has_tissue());
+        _infoAction->getLoadTissuesAction().setEnabled(polygons.has_tissue());
+        _infoAction->getLoadCellsAction().setChecked(polygons.has_cell());
+        _infoAction->getLoadCellsAction().setEnabled(polygons.has_cell());
+        _infoAction->getLoadNucleiAction().setChecked(polygons.has_nucleus());
+        _infoAction->getLoadNucleiAction().setEnabled(polygons.has_nucleus());
+        
+        _infoAction->getReadLevelAction().setEnabled(true);
+    };
+
+    if (mv::projects().isOpeningProject() || mv::projects().isImportingProject())
+    {
+        // Change UI elements in main thread, as project loading happens in worker threads
+        QMetaObject::invokeMethod(
+            _infoAction.get(),
+            [this, enableActions]() {
+                enableActions();
+            },
+            Qt::QueuedConnection
+        );
+    }
+    else
+        enableActions();
 
 }
 
@@ -329,7 +398,10 @@ void PyramidImage::read_level()
     // Convert channel names
 	std::vector<QString> channelNames;
     channelNames.reserve(lvlNumChannels);
-    for (auto& s : lvlChannelNames) channelNames.emplace_back(QString::fromStdString(s));
+    if (lvlNumChannels == lvlChannelNames.size())
+        for (auto& s : lvlChannelNames) channelNames.push_back(QString::fromStdString(s));
+    else
+        for (uint32_t i = 0; i < lvlNumChannels; i++) channelNames.push_back(std::move(QString("Channel %1").arg(i)));
 
     // Reshape to HWC (height-width-channel) from CHW (channel-height-width)
     // TODO: consider load data in HWC (height-width-channel) format instead of CHW (channel-height-width)
@@ -402,9 +474,14 @@ void PyramidImage::read_level()
             std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
 
+            //fmt::println("cellStruct[{}, {}] pixels: {}", maskID, polygonNames[maskID], clusterIDs);
+
             assert(clusterIDs.size() == pixel_counts[maskID]);
 
             PyramidTiffData::sortAndUnique(clusterIDs);
+
+            if (maskID == 0 && clusterIDs.size() < 60)
+                fmt::println("cellStruct[{}, {}] pixels: {}", maskID, polygonNames[maskID], clusterIDs);
 
             Cluster cluster(
                 QString::fromStdString(polygonNames[maskID]),
@@ -458,6 +535,160 @@ void PyramidImage::read_level()
         publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, polygons.names_cell(), "NUCLEUS");
     }
 
+}
+
+void PyramidImage::write_clusters()
+{
+    using namespace PyramidTiffData;
+
+    mv::Dataset<Clusters> clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
+    fmt::println("PyramidImage::write_clusters: using cluster data from {}", clusterData->getGuiName().toStdString());
+
+    // Check if _jsonFilePath exists
+    // TODO: otherwise ask for filepath
+    std::filesystem::path jsonFilePath = _jsonFilePath.toStdString();
+    const bool jsonExists = std::filesystem::exists(jsonFilePath);
+
+    if (!jsonExists)
+    {
+        fmt::println("PyramidImage::write_clusters: json file does not exist: {}", jsonExists);
+        return;
+    }
+
+    // Check if the cluster is derived from some specific level, otherwise ask for the level
+    auto getClusterLevel = [this](const mv::Dataset<Clusters>& clusterData) -> int32_t
+    {
+        // Walk back in the chain of derived data until we find the original source
+        // Any cluster is ultimately derived from a dataset which in turn must be a child of an entry in _levelDatasets
+        const auto levelDataIt = checkIfDataIsDerived(clusterData);
+
+        if (levelDataIt == _levelDatasets.end())
+            return -1;
+
+        return static_cast<int32_t>(levelDataIt->second.second);
+    };
+
+    const int32_t clusterLevel = getClusterLevel(clusterData);
+
+    if (clusterLevel < 0) {
+        fmt::println("PyramidImage::write_clusters: clusterLevel ({}) must be > 0", clusterLevel);
+        return;
+    }
+
+    // each cluster maps to level IDs
+    // map the level IDs to the base resolution
+    // for each cell in the json, check which cluster base resolution IDs falls into the cell maks
+
+    const auto& levelInfos = getRawData<PyramidImageData>()->getPyramid().series().pyramid;
+    const uint32_t baseWidth = levelInfos[0].width;
+    const uint32_t baseHeight = levelInfos[0].height;
+    const uint32_t fromLevelWidth = levelInfos[clusterLevel].width;
+    const uint32_t fromLevelHeight = levelInfos[clusterLevel].height;
+
+    fmt::println("baseWidth {}, baseHeight {}, fromLevelWidth {}, fromLevelHeight {}", baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
+
+    /*
+    for each cell:
+        cell_clusters <- {}
+        for each cluster in clusterData:
+            cell_clusters <- + overlap(cluster_pixels, cell_pixels)
+    
+    for each cell_entry in json_file:
+        write(cell_clusters, cell_entry)
+    */
+
+    // (I) Read 
+    //std::vector<CellStruct> cellStructs = readCellStructs(jsonFilePath, baseWidth, baseHeight, true);
+
+    const auto& polygons = getRawData<PyramidImageData>()->getPolygons();
+    auto [cell_maskIDs, cell_pixel_counts] = polygons.getMaskCell(1.0, 1.0, baseWidth, baseHeight);
+
+    QVector<Cluster>& dataClusters = clusterData->getClusters();
+    const int64_t numClusters = static_cast<int64_t>(dataClusters.size());
+    const int64_t numCells = static_cast<int64_t>(cell_pixel_counts.size());
+
+    assert(polygons.names_cell().size() == cell_pixel_counts.size());
+
+    std::vector<std::vector<uint32_t>> cellClusterIds(numCells, std::vector<uint32_t>{});
+
+    fmt::println("numCells {}", numCells);
+    fmt::println("numClusters {}", numClusters);
+
+    // (II) Map cluster IDs to cells
+    {
+        auto last_pct = ProgressBarInit();
+        auto current_pct = ProgressBarInit();
+
+        fmt::println("PyramidImage::write_clusters: compute cluster base indices");
+        std::vector<std::vector<uint32_t>> baseIndicesClusters(numClusters); // 
+        std::vector<std::array<uint32_t, 4>> baseIndicesBounds(numClusters);
+
+        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+            baseIndicesClusters[numCluster] = mapLevelIdsToBase(dataClusters[numCluster].getIndices(), clusterLevel,
+                baseWidth, baseHeight, fromLevelWidth, fromLevelHeight);
+            baseIndicesBounds[numCluster] = coordinatesBounds(baseIndicesClusters[numCluster], baseWidth, baseHeight);
+            ProgressBarPrint(++current_pct, last_pct, numClusters);
+        }
+        ProgressBarFinish();
+
+        auto boundsOverlap = [](const std::array<uint32_t, 4>& cellBounds, const std::array<uint32_t, 4>& clusterBounds) -> bool
+            {
+                // bool xOverlap    =    a.minX     <=    b.maxX        &&    b.minX        <= a.maxX;
+                const bool xOverlap = cellBounds[0] <= clusterBounds[1] && clusterBounds[0] <= cellBounds[1];
+                const bool yOverlap = cellBounds[2] <= clusterBounds[3] && clusterBounds[2] <= cellBounds[3];
+                return xOverlap && yOverlap;
+            };
+
+        fmt::println("PyramidImage::write_clusters: map clusters to cells");
+
+        // precompute offsets for parallel looping
+        std::vector<uint32_t> offsets(numCells + 1, 0);
+        std::exclusive_scan(cell_pixel_counts.begin(), cell_pixel_counts.end(),
+            offsets.begin(), 0u);
+        offsets[numCells] = offsets[numCells - 1] + cell_pixel_counts[numCells - 1];
+
+#pragma omp parallel for schedule(guided)
+        for (int64_t numCell = 0; numCell < numCells; ++numCell)
+        {
+            if (cell_pixel_counts[numCell] == 0)
+                continue;
+
+            const uint32_t idsBegin = offsets[numCell];
+            const uint32_t idsEnd = idsBegin + cell_pixel_counts[numCell];
+
+            std::span<uint32_t> clusterIDs(cell_maskIDs.begin() + idsBegin, cell_maskIDs.begin() + idsEnd);
+
+            std::ranges::sort(clusterIDs);
+
+            for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+                if (!boundsOverlap(coordinatesBounds(clusterIDs, baseWidth, baseHeight), baseIndicesBounds[numCluster]))
+                    continue;
+
+                std::vector<uint32_t> intersection;
+                std::ranges::set_intersection(clusterIDs, baseIndicesClusters[numCluster],
+                    std::back_inserter(intersection));
+
+                if (!intersection.empty())
+                    cellClusterIds[numCell].push_back(static_cast<uint32_t>(numCluster));
+
+            }
+
+#pragma omp critical
+            {
+                ProgressBarPrint(++current_pct, last_pct, numCells);
+
+                if (cellClusterIds[numCell].empty()) {
+                    fmt::println("clusterIDs[{}]: {}", numCell, clusterIDs);
+                }
+            }
+        }
+        ProgressBarFinish();
+    }
+
+    // write to csv
+    const auto csvPath = changeExtension(jsonFilePath, ".csv");
+    fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
+    writeClusterIdsToCsv(csvPath, numCells, numClusters, polygons, cellClusterIds);
 }
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()
@@ -536,22 +767,28 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
     _tiffFilePath = variantMap[SID_tiffFilePath].toString();
     _jsonFilePath = variantMap[SID_jsonFilePath].toString();
 
-    if (std::filesystem::exists(_tiffFilePath.toStdString()) && std::filesystem::exists(_jsonFilePath.toStdString())) {
+    if (std::filesystem::exists(_tiffFilePath.toStdString()) 
+        && std::filesystem::exists(_jsonFilePath.toStdString())) {
         scan();
     }
     else {
-        _infoAction->getReadLevelAction().setDisabled(true);
-        _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
-        _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
+        // Change UI elements in main thread, as project loading happens in worker threads
+        QMetaObject::invokeMethod(
+            _infoAction.get(),
+            [this]() {
+                _infoAction->getReadLevelAction().setDisabled(true);
+                _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
+                _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
+            },
+            Qt::QueuedConnection
+        );
     }
 
-    {
-        for (const auto [dataID, selectionCount] : variantMap[SID_levelDatasets].toMap().asKeyValueRange()) {
-            _levelDatasets[dataID] = std::make_pair(
-                mv::data().getDataset(dataID),
-                static_cast<uint32_t>(selectionCount.toUInt())
-            );
-        }
+    for (const auto [dataID, selectionCount] : variantMap[SID_levelDatasets].toMap().asKeyValueRange()) {
+        _levelDatasets[dataID] = std::make_pair(
+            mv::data().getDataset(dataID),
+            static_cast<uint32_t>(selectionCount.toUInt())
+        );
     }
 
     events().notifyDatasetDataChanged(this);

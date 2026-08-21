@@ -6,6 +6,7 @@
 
 #include "PyramidTiffData.h"
 
+#include "actions/DatasetPickerAction.h"
 #include "actions/OptionAction.h"
 #include "actions/StringAction.h"
 #include "actions/ToggleAction.h"
@@ -40,6 +41,8 @@ public:
     mv::gui::ToggleAction& getLoadCellsAction() { return _loadCellsAction; }
     mv::gui::ToggleAction& getLoadNucleiAction() { return _loadNucleiAction; }
     mv::gui::TriggerAction& getReadLevelAction() { return _readLevelAction; }
+    mv::gui::DatasetPickerAction& getClusterDataAction() { return _datasetClusterAction; }
+    mv::gui::TriggerAction& getWriteClustersAction() { return _writeClustersAction; }
 
 public: // Serialization
 
@@ -62,9 +65,11 @@ protected:
     mv::gui::StringAction           _numberOfLevelsAction;              /** Number of pyramid levels action */
     mv::gui::StringAction           _numberOfChannelsAction;            /** Number of channels action */
     mv::gui::OptionAction           _resolutionsAction;                 /** List of pyramid resolutions action */
-    mv::gui::ToggleAction           _loadRoisAction;                     /**  */
-    mv::gui::ToggleAction           _loadTissuesAction;                     /**  */
-    mv::gui::ToggleAction           _loadCellsAction;                     /**  */
-    mv::gui::ToggleAction           _loadNucleiAction;                     /**  */
+    mv::gui::ToggleAction           _loadRoisAction;                    /**  */
+    mv::gui::ToggleAction           _loadTissuesAction;                 /**  */
+    mv::gui::ToggleAction           _loadCellsAction;                   /**  */
+    mv::gui::ToggleAction           _loadNucleiAction;                  /**  */
     mv::gui::TriggerAction          _readLevelAction;                   /** List of pyramid resolutions action */
+    mv::gui::DatasetPickerAction    _datasetClusterAction;              /**  */
+    mv::gui::TriggerAction          _writeClustersAction;               /**  */
 };

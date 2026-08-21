@@ -11,6 +11,7 @@ target_sources(tifftest
         ../PyramidTiffData/src/PolygonData.cpp
         ../PyramidTiffData/src/CommonTypesAndTransformations.cpp
         ../PyramidTiffData/src/UtilsJson.cpp
+        ../PyramidTiffData/src/UtilsFiles.cpp
 )
 
 target_include_directories(tifftest
@@ -26,3 +27,11 @@ target_link_libraries(tifftest
         TIFF::TIFF
         jsoncons::jsoncons
 )
+
+if(MV_MIPYR_USE_OPENMP AND OpenMP_CXX_FOUND)
+    target_link_libraries(tifftest PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(tifftest PRIVATE TBB::tbb)
+endif()

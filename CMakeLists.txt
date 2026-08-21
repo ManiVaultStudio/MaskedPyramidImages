@@ -56,6 +56,7 @@ endif()
 find_package(fmt CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(jsoncons REQUIRED)
+find_package(rapidcsv CONFIG REQUIRED)
 
 if(MV_MIPYR_USE_OPENMP)
     find_package(OpenMP)
@@ -63,6 +64,10 @@ if(MV_MIPYR_USE_OPENMP)
     if(OpenMP_CXX_FOUND)
         message(STATUS "MaskedPyramidImages: Found OpenMP")
     endif()
+endif()
+
+if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    find_package(TBB REQUIRED)
 endif()
 
 # -----------------------------------------------------------------------------

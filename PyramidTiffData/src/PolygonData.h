@@ -52,6 +52,15 @@ namespace PyramidTiffData
         [[nodiscard]] const std::vector<std::array<uint8_t, 3>>& colors_tissue() const noexcept {
             return _colors_tissue;
         }
+        [[nodiscard]] const std::vector<Point2D>& centroids_cell() const noexcept {
+            return _centroids_cell;
+        }
+        [[nodiscard]] const std::vector<size_t>& roi_nums_cell() const noexcept {
+            return _roi_nums_cell;
+        }
+        [[nodiscard]] const std::string& roi_name_cell(size_t cellNum) const noexcept {
+            return _names_roi[_roi_nums_cell[cellNum]];
+        }
         [[nodiscard]] const std::vector<std::string>& names_measurements() const noexcept {
             return _names_measurements;
         }
@@ -109,6 +118,9 @@ namespace PyramidTiffData
         std::vector<std::vector<Point2D>> _polygons_tissue{};
         std::vector<std::vector<Point2D>> _polygons_cell{};
         std::vector<std::vector<Point2D>> _polygons_nucleus{};
+
+        std::vector<Point2D> _centroids_cell{};
+        std::vector<size_t> _roi_nums_cell{};
 
         std::vector<std::string> _names_measurements{};
         std::vector<float> _means_nucleus{};

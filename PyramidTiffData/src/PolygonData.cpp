@@ -25,36 +25,6 @@
 namespace PyramidTiffData {
 
     // =============================================================================
-    // Helper
-    // =============================================================================
-
-    namespace {
-        constexpr uintmax_t ProgressBarWidth = 40;
-
-        inline void ProgressBarPrint(const std::uintmax_t current, std::uintmax_t& previous_pct, const std::uintmax_t total)
-        {
-            const uintmax_t pct = static_cast<uintmax_t>((current * 100) / total);
-            if (pct != previous_pct) {
-                previous_pct = pct;
-                const int filled = static_cast<int>(static_cast<double>(ProgressBarWidth * pct) / 100.0);
-                fmt::print("\r[{:=<{}}{: <{}}] {:3}%", "", filled, "", ProgressBarWidth - filled, pct);
-                [[maybe_unused]] int success = std::fflush(stdout);
-            }
-
-        }
-
-        inline void ProgressBarFinish()
-        {
-            fmt::print("\r[{:=<{}}{: <{}}] {:3}%\n", "", ProgressBarWidth, "", 0, 100.0); // 100%
-        }
-
-        inline std::uintmax_t ProgressBarInit()
-        {
-            return 0;
-        }
-    }
-
-    // =============================================================================
 	// PolygonData
 	// =============================================================================
 
@@ -84,9 +54,16 @@ namespace PyramidTiffData {
         try {
             jsoncons::json_stream_cursor cursor(f);
 
-            int unnamed_roi_counter = 0;
-            int unnamed_tissue_counter = 0;
-            int unnamed_cell_counter = 0;
+            int64_t roi_counter = 0;            // ROI is either before all cells or after
+            bool roi_before_cells = true;
+
+            int64_t unnamed_roi_counter = 0;
+            int64_t unnamed_tissue_counter = 0;
+            int64_t unnamed_cell_counter = 0;
+            const std::string prefix_roi = getMaskString(MaskType::Roi);
+            const std::string prefix_tissue = getMaskString(MaskType::Tissue);
+            const std::string prefix_cell = getMaskString(MaskType::Cell);
+            
             bool in_features_array = false;
 
             const uintmax_t total_bytes = std::filesystem::file_size(path);
@@ -124,21 +101,28 @@ namespace PyramidTiffData {
 
                     if (maskType == MaskType::Roi)
                     {
-                        parseName(feature, _names_roi, "ROI", unnamed_roi_counter);
+                        roi_counter++;
+                        parseName(feature, _names_roi, prefix_roi, unnamed_roi_counter);
                         parseGeometry(feature, _polygons_roi);
                         parseColor(feature, _colors_roi);
                     }
                     else if (maskType == MaskType::Tissue)
                     {
-                        parseNameID(feature, _names_tissue, "TISSUE", unnamed_tissue_counter);
+                        parseNameID(feature, _names_tissue, prefix_tissue, unnamed_tissue_counter);
                         parseGeometry(feature, _polygons_tissue);
                         parseColor(feature, _colors_tissue);
                     }
                     else if (maskType == MaskType::Cell)
                     {
-                        parseNameID(feature, _names_cell, "CELL", unnamed_cell_counter);
+                        if (roi_counter == 0 && _names_cell.empty())
+                            roi_before_cells = false;
+
+                        parseNameID(feature, _names_cell, prefix_cell, unnamed_cell_counter);
                         parseGeometry(feature, _polygons_cell);
                         parseGeometryNucleus(feature, _polygons_nucleus);
+
+                        _centroids_cell.push_back(computeCentroid(_polygons_cell.back()));
+                        _roi_nums_cell.push_back(roi_before_cells ? roi_counter - 1 : roi_before_cells);
 
                         parseMeasurementNames(feature, _names_measurements);
                         parseMeasurementMeans(feature, _means_nucleus, "Nucleus");
@@ -185,9 +169,9 @@ namespace PyramidTiffData {
         assert(_colors_roi.size() == _polygons_roi.size());
         assert(_polygons_tissue.empty() || _polygons_roi.size() == _polygons_tissue.size());
         assert(_polygons_tissue.empty() || _colors_roi.size() == _polygons_tissue.size());
-        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_tissue.size());
-        assert(_polygons_cell.empty() || _polygons_cell.size() == _polygons_nucleus.size());
-        assert(_means_nucleus.size() % _names_measurements.size() == 0);
+        assert((_polygons_cell.empty() || _polygons_nucleus.empty()) || _polygons_cell.size() == _polygons_nucleus.size());
+        assert(_centroids_cell.empty() || _polygons_cell.size() == _centroids_cell.size());
+        assert(_names_measurements.empty() || _means_nucleus.size() % _names_measurements.size() == 0);
         assert(_means_nucleus.size() == _means_cytoplasm.size());
         assert(_means_cytoplasm.size() == _means_membrane.size());
         assert(_means_membrane.size() == _means_cell.size());
@@ -221,39 +205,33 @@ namespace PyramidTiffData {
         std::vector<uint32_t> pixelCounts{};
 
         auto scale_coords = [scaleFactorWidth, scaleFactorHeight](const std::vector<Point2D>& points) -> std::vector<Point2D> {
-            std::vector<Point2D> points_scaled(points.size());
+            std::vector<Point2D> pointsScaled(points.size());
 
+            const int64_t numPoints = static_cast<int64_t>(points.size());
 #pragma omp parallel for
-            for (int64_t i = 0; i < static_cast<int64_t>(points.size()); ++i) {
-                points_scaled[i] = {
+            for (int64_t i = 0; i < numPoints; ++i) {
+                pointsScaled[i] = {
                     .x = std::round(points[i].x * scaleFactorWidth),
                     .y = std::round(points[i].y * scaleFactorHeight)
                 };
             }
 
-            return points_scaled;
+            return pointsScaled;
             };
 
-        auto last_pct = ProgressBarInit();
+        auto lastPct = ProgressBarInit();
         std::uintmax_t currentID = 0;
         for (const auto& coords : polygons) {
             const auto& coords_scaled = (scaleFactorWidth == 1.0) ? coords : scale_coords(coords);
             rasterize_polygon(coords_scaled, imgWidthScaled, imgHeightScaled, indices, pixelCounts);
 
-            ProgressBarPrint(currentID++, last_pct, polygons.size());
+            ProgressBarPrint(currentID++, lastPct, polygons.size());
         }
         ProgressBarFinish();
 
-        // flip the mask IDs
-#pragma omp parallel for
-        for (int64_t id = 0; id < static_cast<int64_t>(indices.size()); ++id) {
-            const uint32_t v = indices[id];
-            const uint32_t row = v / imgWidthScaled;
-            const uint32_t col = v % imgWidthScaled;
-            indices[id] = (imgHeightScaled - 1 - row) * imgWidthScaled + col;
-        }
+        flipMaskIDs(indices, imgWidthScaled, imgHeightScaled);
 
-        assert(indices.size() == std::reduce(pixelCounts.begin(), pixelCounts.end(), 0ull));
+        assert(indices.size() == std::accumulate(pixelCounts.begin(), pixelCounts.end(), 0ull));
 
         return { indices , pixelCounts };
     }
