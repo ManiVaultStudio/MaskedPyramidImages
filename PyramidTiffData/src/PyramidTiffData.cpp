@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <set>
 #include <string>
 
 #include <QMetaObject>
@@ -625,6 +626,14 @@ void PyramidImage::write_clusters()
         }
         ProgressBarFinish();
 
+        std::set<uint32_t> ids;
+        for (int64_t numCluster = 0; numCluster < numClusters; ++numCluster) {
+            const auto& v = dataClusters[numCluster].getIndices();
+            ids.insert(v.begin(), v.end());
+        }
+
+        fmt::println("Size IDs: {}", ids.size());
+
         auto boundsOverlap = [](const std::array<uint32_t, 4>& cellBounds, const std::array<uint32_t, 4>& clusterBounds) -> bool
             {
                 // bool xOverlap    =    a.minX     <=    b.maxX        &&    b.minX        <= a.maxX;
@@ -672,7 +681,13 @@ void PyramidImage::write_clusters()
                 ProgressBarPrint(++current_pct, last_pct, numCells);
 
                 if (cellClusterIds[numCell].empty()) {
-                    fmt::println("clusterIDs[{}]: {}", numCell, clusterIDs);
+                    fmt::println("Empty cellClusterIds for cell {}, clusterIDs[{}]: {}", numCell, numCell, clusterIDs);
+                    for (auto id: clusterIDs)
+                    {
+                        if (!ids.contains(id))
+                            fmt::println("{} not known", numCell);
+                    }
+
                 }
             }
         }
@@ -683,6 +698,8 @@ void PyramidImage::write_clusters()
     const auto csvPath = changeExtension(jsonFilePath, ".csv");
     fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
     writeClusterIdsToCsv(csvPath, numCells, numClusters, polygons, cellClusterIds);
+
+    fmt::println("PyramidImage::write_clusters: Done.");
 }
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()
