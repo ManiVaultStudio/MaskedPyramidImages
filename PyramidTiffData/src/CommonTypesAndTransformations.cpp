@@ -146,22 +146,29 @@ namespace PyramidTiffData {
             points.begin(), points.end(),
             [](const Point2D& a, const Point2D& b)
             { return a.y < b.y; });
-        const double minY = minIt->y;
-        const double maxY = maxIt->y;
+        const int64_t minY = static_cast<int32_t>(minIt->y);
+        const int64_t maxY = static_cast<int32_t>(maxIt->y);
+
+        if (maxY < minY) return {};
 
         const auto img_width_d = static_cast<double>(img_width);
         const auto max_id = static_cast<uint64_t>(img_width) * img_height;
+        const int64_t numRows = maxY - minY + 1;
 
-        std::vector<uint32_t> indices;
+        std::vector<std::vector<uint32_t>> rowIndices(numRows);
+        const size_t numPoints = points.size();
 
         // Iterate through each scanline
-        for (uint32_t y = static_cast<uint32_t>(minY); y <= maxY; ++y) {
+#pragma omp parallel for schedule(guided)
+        for (int64_t row = 0; row < static_cast<int64_t>(numRows); ++row) {
+            const uint32_t y = minY + static_cast<uint32_t>(row);
             const double scanline = static_cast<double>(y) + 0.5; // pixel center
 
-            std::vector<uint32_t> nodes;
-            size_t j = points.size() - 1;
+            thread_local std::vector<uint32_t> nodes;
+            nodes.clear();
 
             // Find intersections of the scanline with polygon edges
+            size_t j = points.size() - 1;
             for (size_t i = 0; i < points.size(); ++i) {
                 const auto& [xi, yi] = points[i];
                 const auto& [xj, yj] = points[j];
@@ -177,9 +184,8 @@ namespace PyramidTiffData {
             std::ranges::sort(nodes);
 
             // Fill pixels between pairs of nodes (Even-Odd rule)
-            for (size_t i = 0; i < nodes.size(); i += 2) {
-                if (i + 1 >= nodes.size()) break;
-
+            auto& currentRow = rowIndices[row];
+            for (size_t i = 0; i + 1 < nodes.size(); i += 2) {
                 const uint32_t leftX = nodes[i];
                 const uint32_t rightX = nodes[i + 1];
 
@@ -187,10 +193,19 @@ namespace PyramidTiffData {
                     // Convert 2D to 1D index
                     if (const uint64_t idx = static_cast<uint64_t>(y) * img_width + x;
                         idx < max_id)
-                        indices.push_back(static_cast<uint32_t>(idx));
+                        currentRow.push_back(static_cast<uint32_t>(idx));
                 }
             }
         }
+
+        size_t total = 0;
+        for (const auto& row : rowIndices) total += row.size();
+
+        std::vector<uint32_t> indices;
+        indices.reserve(total);
+        for (auto& row : rowIndices)
+            indices.insert(indices.end(),
+                std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
 
         sortAndUnique(indices);
 
