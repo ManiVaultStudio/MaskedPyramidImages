@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <set>
 #include <string>
 
 #include <QMetaObject>
@@ -474,14 +473,9 @@ void PyramidImage::read_level()
             std::vector<uint32_t> clusterIDs(maskIDs.cbegin() + idsBegin, maskIDs.cbegin() + idsEnd);
             idsBegin = idsEnd;
 
-            //fmt::println("cellStruct[{}, {}] pixels: {}", maskID, polygonNames[maskID], clusterIDs);
-
             assert(clusterIDs.size() == pixel_counts[maskID]);
 
             PyramidTiffData::sortAndUnique(clusterIDs);
-
-            if (maskID == 0 && clusterIDs.size() < 60)
-                fmt::println("cellStruct[{}, {}] pixels: {}", maskID, polygonNames[maskID], clusterIDs);
 
             Cluster cluster(
                 QString::fromStdString(polygonNames[maskID]),
