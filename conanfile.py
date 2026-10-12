@@ -1,13 +1,8 @@
 from conans import ConanFile
 from conan.tools.cmake import CMakeDeps, CMake, CMakeToolchain
-from conans.tools import save, load
-from conans.tools import os_info, SystemPackageTool
-import os
-import shutil
-import pathlib
-import subprocess
+from conans.tools import save, load, os_info, SystemPackageTool
+import os, pathlib, subprocess
 from rules_support import PluginBranchInfo
-from conans import tools
 
 class MaskedPyramidImagesPluginConan(ConanFile):
     """Class to package the MaskedPyramidImages-Plugin using conan
