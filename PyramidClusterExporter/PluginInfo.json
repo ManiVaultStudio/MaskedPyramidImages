@@ -1,0 +1,10 @@
+{
+    "name" : "Masked Image Pyramid Cluster Exporter",
+    "menuName" : "Append cluster IDs (.csv)",
+    "version" :  {
+        "plugin" : "1.0.0",
+        "core" : ["1.4"]
+    },
+    "type" : "Writer",
+    "dependencies" : ["Points", "Cluster"]
+}

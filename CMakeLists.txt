@@ -78,6 +78,7 @@ set(PyramidTiffData_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/PyramidTiffData/src
 
 add_subdirectory(PyramidTiffData)
 add_subdirectory(PyramidTiffLoader)
+add_subdirectory(PyramidClusterExporter)
 
 if(MV_MIPYR_BUILD_TESTS)
     add_subdirectory(test)
