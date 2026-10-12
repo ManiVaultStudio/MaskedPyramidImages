@@ -24,7 +24,7 @@ include(GenerateExportHeader)
 # -----------------------------------------------------------------------------
 # Source files
 # -----------------------------------------------------------------------------
-set(PYRAMID_TIFF_HEADERS
+set(PYRAMID_TIFF_DATA_HEADERS
     src/PyramidTiffData.h
     src/PyramidInfoAction.h
     src/OmeTiffPyramid.h
@@ -32,7 +32,7 @@ set(PYRAMID_TIFF_HEADERS
     src/CommonTypesAndTransformations.h
 )
 
-set(PYRAMID_TIFF_SOURCES
+set(PYRAMID_TIFF_DATA_SOURCES
     src/PyramidTiffData.cpp
     src/PyramidInfoAction.cpp
     src/OmeTiffPyramid.cpp
@@ -56,15 +56,15 @@ set(AUX
 
 string(TOLOWER ${PYRAMIDTIFFDATA} PYRAMIDTIFFDATA_LOWER)
 set(PYRAMIDTIFFDATA_EXPORT_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${PYRAMIDTIFFDATA_LOWER}_export.h")
-list(APPEND PYRAMID_TIFF_HEADERS ${PYRAMIDTIFFDATA_EXPORT_HEADER})
+list(APPEND PYRAMID_TIFF_DATA_HEADERS ${PYRAMIDTIFFDATA_EXPORT_HEADER})
 
-source_group(Plugin FILES ${PYRAMID_TIFF_HEADERS} ${PYRAMID_TIFF_SOURCES} ${PYRAMID_UTILS_HEADERS} ${PYRAMID_UTILS_SOURCES})
+source_group(Plugin FILES ${PYRAMID_TIFF_DATA_HEADERS} ${PYRAMID_TIFF_DATA_SOURCES} ${PYRAMID_UTILS_HEADERS} ${PYRAMID_UTILS_SOURCES})
 source_group(Aux FILES ${AUX})
 
 # -----------------------------------------------------------------------------
 # CMake Target
 # -----------------------------------------------------------------------------
-add_library(${PYRAMIDTIFFDATA} SHARED ${PYRAMID_TIFF_HEADERS} ${PYRAMID_TIFF_SOURCES} ${PYRAMID_UTILS_HEADERS} ${PYRAMID_UTILS_SOURCES} ${AUX})
+add_library(${PYRAMIDTIFFDATA} SHARED ${PYRAMID_TIFF_DATA_HEADERS} ${PYRAMID_TIFF_DATA_SOURCES} ${PYRAMID_UTILS_HEADERS} ${PYRAMID_UTILS_SOURCES} ${AUX})
 add_library(ManiVault::${PYRAMIDTIFFDATA} ALIAS ${PYRAMIDTIFFDATA})
 
 # Generate a header file that contains the EXPORT macro for this library.

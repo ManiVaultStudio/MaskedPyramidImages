@@ -21,7 +21,7 @@ mv_project_defaults()
 # -----------------------------------------------------------------------------
 # Source files
 # -----------------------------------------------------------------------------
-set(SOURCES
+set(PYRAMID_TIFF_LOADER_SOURCES
     src/PyramidTiffLoader.h
     src/PyramidTiffLoader.cpp
 )
@@ -30,13 +30,13 @@ set(AUX
     PluginInfo.json
 )
 
-source_group(Plugin FILES ${SOURCES})
+source_group(Plugin FILES ${PYRAMID_TIFF_LOADER_SOURCES})
 source_group(Aux FILES ${AUX})
 
 # -----------------------------------------------------------------------------
 # CMake Target
 # -----------------------------------------------------------------------------
-add_library(${PYRAMIDTIFFLOADER} SHARED ${SOURCES} ${AUX})
+add_library(${PYRAMIDTIFFLOADER} SHARED ${PYRAMID_TIFF_LOADER_SOURCES} ${AUX})
 
 # -----------------------------------------------------------------------------
 # Target include directories
