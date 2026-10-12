@@ -38,7 +38,7 @@ find_package(ZLIB REQUIRED)
 # Detect and repair this case before find_package(TIFF) runs.
 if(NOT TARGET ZLIB::ZLIB)
     message(STATUS "MaskedPyramidImages: ZLIB::ZLIB target missing despite ZLIB_FOUND=${ZLIB_FOUND}. Now creating ZLIB::ZLIB manually")
-    find_library(ZLIB_LIBRARY_MANUAL NAMES z zlib zlibstatic zlib_static REQUIRED)
+    find_library(ZLIB_LIBRARY_MANUAL NAMES z zlib zlibstatic zlib_static ZLIB::ZLIBSTATIC REQUIRED)
     add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
     set_target_properties(ZLIB::ZLIB PROPERTIES
         IMPORTED_LOCATION             "${ZLIB_LIBRARY_MANUAL}"
