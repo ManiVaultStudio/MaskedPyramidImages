@@ -161,7 +161,7 @@ namespace PyramidTiffData {
         // Iterate through each scanline
 #pragma omp parallel for schedule(guided)
         for (int64_t row = 0; row < static_cast<int64_t>(numRows); ++row) {
-            const uint32_t y = minY + static_cast<uint32_t>(row);
+            const int64_t y = minY + row;
             const double scanline = static_cast<double>(y) + 0.5; // pixel center
 
             thread_local std::vector<uint32_t> nodes;
