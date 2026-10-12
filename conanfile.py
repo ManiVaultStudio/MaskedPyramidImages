@@ -120,7 +120,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
             vcpkg_exe = vcpkg_dir / "vcpkg.exe" if self.settings.os == "Windows" else vcpkg_dir / "vcpkg" 
             vcpkg_tc  = vcpkg_dir / "scripts" / "buildsystems" / "vcpkg.cmake"
 
-            vcpkg_triplet = "x64-windows"
+            vcpkg_triplet = "x64-windows-static-md"
             if self.settings.os == "Macos":
                 vcpkg_triplet = "arm64-osx"
             if self.settings.os == "Linux":
@@ -131,7 +131,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
             print("vcpkg_tc: ", vcpkg_tc)
             print("vcpkg_triplet: ", vcpkg_triplet)
 
-            tc.variables["VCPKG_LIBRARY_LINKAGE"]   = "dynamic"
+            tc.variables["VCPKG_LIBRARY_LINKAGE"]   = "static"
             tc.variables["VCPKG_TARGET_TRIPLET"]    = vcpkg_triplet
             tc.variables["VCPKG_HOST_TRIPLET"]      = vcpkg_triplet
             tc.variables["VCPKG_ROOT"]              = vcpkg_dir.as_posix()
