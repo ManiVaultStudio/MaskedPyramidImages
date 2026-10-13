@@ -115,7 +115,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
             vcpkg_exe = vcpkg_dir / "vcpkg.exe" if self.settings.os == "Windows" else vcpkg_dir / "vcpkg" 
             vcpkg_tc  = vcpkg_dir / "scripts" / "buildsystems" / "vcpkg.cmake"
 
-            vcpkg_triplet = "x64-windows-static-md"
+            vcpkg_triplet = "x64-windows"
             if self.settings.os == "Macos":
                 vcpkg_triplet = "arm64-osx"
             if self.settings.os == "Linux":
