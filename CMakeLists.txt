@@ -25,34 +25,6 @@ find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
 
-# ManiVault core drags in zstd and zlib. When build in one project, e.g. in the "DevBundle"
-# we want to use the already existing zlib_static target and introduce it to vcpkg dependencies
-
-if(TARGET ZLIB::ZLIB)
-    # Already provided (e.g. by parent project)
-elseif(TARGET zlibstatic)
-    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> zlibstatic")
-    add_library(ZLIB::ZLIB ALIAS zlibstatic)
-elseif(TARGET zlib_static)
-    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> zlib_static")
-    add_library(ZLIB::ZLIB ALIAS zlib_static)
-elseif(TARGET zlib)
-    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> zlib")
-    add_library(ZLIB::ZLIB ALIAS zlib)
-elseif(TARGET ZLIB::ZLIBSTATIC)
-    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> ZLIB::ZLIBSTATIC")
-    add_library(ZLIB::ZLIB ALIAS ZLIB::ZLIBSTATIC)
-else()
-  find_package(ZLIB REQUIRED)
-endif()
-
-if(TARGET libzstd_static)
-    message(STATUS "MaskedPyramidImages: Creating alias zstd::libzstd_static -> libzstd_static")
-    add_library(zstd::libzstd_static ALIAS libzstd_static)
-else()
-     find_package(zstd CONFIG REQUIRED)
-endif()
-
 find_package(fmt CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(jsoncons REQUIRED)
