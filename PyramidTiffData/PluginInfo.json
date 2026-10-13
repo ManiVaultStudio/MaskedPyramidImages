@@ -1,5 +1,5 @@
 {
-    "name" : "Masked Image Pyramid",
+    "name" : "Masked Image Pyramid Data",
     "version" :  {
         "plugin" : "1.0.0",
         "core" : ["1.4"]

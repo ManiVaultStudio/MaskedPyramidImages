@@ -1,13 +1,8 @@
 from conans import ConanFile
 from conan.tools.cmake import CMakeDeps, CMake, CMakeToolchain
-from conans.tools import save, load
-from conans.tools import os_info, SystemPackageTool
-import os
-import shutil
-import pathlib
-import subprocess
+from conans.tools import save, load, os_info, SystemPackageTool
+import os, pathlib, subprocess
 from rules_support import PluginBranchInfo
-from conans import tools
 
 class MaskedPyramidImagesPluginConan(ConanFile):
     """Class to package the MaskedPyramidImages-Plugin using conan
@@ -131,7 +126,6 @@ class MaskedPyramidImagesPluginConan(ConanFile):
             print("vcpkg_tc: ", vcpkg_tc)
             print("vcpkg_triplet: ", vcpkg_triplet)
 
-            tc.variables["VCPKG_LIBRARY_LINKAGE"]   = "dynamic"
             tc.variables["VCPKG_TARGET_TRIPLET"]    = vcpkg_triplet
             tc.variables["VCPKG_HOST_TRIPLET"]      = vcpkg_triplet
             tc.variables["VCPKG_ROOT"]              = vcpkg_dir.as_posix()

@@ -12,13 +12,6 @@ PROJECT(${PYRAMIDTIFFLOADER}
 # -----------------------------------------------------------------------------
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3 /DWIN32 /EHsc /MP /Zc:__cplusplus")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /MD")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
-endif()
-
 # -----------------------------------------------------------------------------
 # Dependencies
 # -----------------------------------------------------------------------------
@@ -26,7 +19,7 @@ endif()
 # -----------------------------------------------------------------------------
 # Source files
 # -----------------------------------------------------------------------------
-set(SOURCES
+set(PYRAMID_TIFF_LOADER_SOURCES
     src/PyramidTiffLoader.h
     src/PyramidTiffLoader.cpp
 )
@@ -35,13 +28,13 @@ set(AUX
     PluginInfo.json
 )
 
-source_group(Plugin FILES ${SOURCES})
+source_group(Plugin FILES ${PYRAMID_TIFF_LOADER_SOURCES})
 source_group(Aux FILES ${AUX})
 
 # -----------------------------------------------------------------------------
 # CMake Target
 # -----------------------------------------------------------------------------
-add_library(${PYRAMIDTIFFLOADER} SHARED ${SOURCES} ${AUX})
+add_library(${PYRAMIDTIFFLOADER} SHARED ${PYRAMID_TIFF_LOADER_SOURCES} ${AUX})
 
 # -----------------------------------------------------------------------------
 # Target include directories

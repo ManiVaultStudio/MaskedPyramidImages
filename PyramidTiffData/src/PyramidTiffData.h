@@ -22,7 +22,7 @@ class PyramidInfoAction;
 // Data (Raw)
 // =============================================================================
 
-const auto PyramidImageDataType = mv::DataType(QString("Masked Image Pyramid"));
+const auto PyramidImageDataType = mv::DataType(QString("Masked Image Pyramid Data"));
 
 class PYRAMIDTIFFDATA_EXPORT PyramidImageData : public mv::plugin::RawData
 {

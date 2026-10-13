@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  VCPKG_COMMIT_SHA: cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3 # corresponds to tag 2026.06.24
+  VCPKG_COMMIT_SHA: e456309491fd875487bf02b8a0dca76c1b1b00cc # corresponds to 2026.10.10
 
 # for matrix check https://docs.github.com/en/actions/reference/specifications-for-github-hosted-runners
 jobs:
@@ -59,17 +59,6 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Start ssh key agent
-        uses: webfactory/ssh-agent@v0.10.0
-        with:
-          ssh-private-key: ${{ secrets.RULESSUPPORT_DEPLOY_KEY }}
-
-      - name: Install SSH deploy key for rulessupport
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.RULESSUPPORT_DEPLOY_KEY }}
-          known_hosts: github.com AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==
-
       - name: Set vcpkg environment (Unix)
         if: "!startsWith(runner.os, 'Windows')"
         run: |
@@ -117,7 +106,6 @@ jobs:
           conan-user: ${{secrets.LKEB_UPLOAD_USER}}
           conan-password: ${{secrets.LKEB_UPLOAD_USER_PASSWORD}}
           conan-pem: ${{secrets.LKEB_UPLOAD_CERT_CHAIN}}
-          rs_ssh_key: ${{ secrets.RULESSUPPORT_DEPLOY_KEY }}
           sentry-upload: startsWith(github.ref, 'refs/heads/release/')
           sentry-url: ${{secrets.LKEB_SENTRY_URL }}
           sentry-org: ${{secrets.LKEB_SENTRY_ORG }}
