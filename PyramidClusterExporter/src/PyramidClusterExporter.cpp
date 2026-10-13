@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <vector>
 
+#include <QFileDialog>
+
 #include <fmt/base.h>
 #include <rapidcsv.h>
 
@@ -58,6 +60,7 @@ PyramidClusterExporterDialog::PyramidClusterExporterDialog(QWidget* parent) :
     QDialog(parent),
     _datafilePickerAction(this, "CSV file"),
     _columnNameAction(this, "Column name", "ID"),
+    _saveAsNewAction(this, "Save as new"),
     _writeButtonAction(this, "OK"),
     _groupAction(this, "Settings")
 {
@@ -69,8 +72,11 @@ PyramidClusterExporterDialog::PyramidClusterExporterDialog(QWidget* parent) :
     _datafilePickerAction.setFileType("CSV file");
     _datafilePickerAction.setToolTip("CSV file to append the cluster IDs");
 
+    _saveAsNewAction.setToolTip("Save a new json instead of overwriting the old");
+
     _groupAction.addAction(&_datafilePickerAction);
     _groupAction.addAction(&_columnNameAction);
+    _groupAction.addAction(&_saveAsNewAction);
     _groupAction.addAction(&_writeButtonAction);
 
     auto layout = new QVBoxLayout();
@@ -118,13 +124,41 @@ void PyramidClusterExporter::writeData()
         numClusterIDs += clusters[numCluster].getNumberOfIndices();
     }
 
+    auto getSaveCsvPath = [this](const bool saveAsNew, const std::string& loadCsvPath) -> std::string
+    {
+        if (saveAsNew)
+        {
+            // Let the user choose the new save path
+            const QString registryEntry = "directoryPath";
+            const auto directoryPath = QDir(getSetting(registryEntry, "").toString());
+
+            const auto csvFileName = QString::fromStdString(std::filesystem::path(loadCsvPath).filename().string());
+            const QString newSavePath = QFileDialog::getSaveFileName(
+                nullptr,
+                tr("Save CSV"),
+                directoryPath.filePath(csvFileName + ".csv"),
+                tr("CSV file (*.csv);;All Files (*)"));
+
+            if (newSavePath.isNull() || newSavePath.isEmpty())
+                throw std::exception("New CSV file invalid");
+
+            setSetting(registryEntry, QFileInfo(newSavePath).absolutePath());
+
+            return newSavePath.toStdString();
+        }
+        
+        return loadCsvPath;
+    };
+
     // Read CSV file and write back to it
     try {
-        const std::string csvPath = outputDialog.getFilePath().toStdString();
-        const std::string colName = outputDialog.getColumnName().toStdString();
+        const bool saveAsNewFile        = outputDialog.getSaveAsNew();
+        const std::string csvLoadPath   = outputDialog.getFilePath().toStdString();
+        const std::string colName       = outputDialog.getColumnName().toStdString();
+        const std::string csvSavePath   = getSaveCsvPath(saveAsNewFile, csvLoadPath);
 
-        fmt::println("PyramidClusterExporter: Reading: {}", csvPath);
-        rapidcsv::Document doc(csvPath);
+        fmt::println("PyramidClusterExporter: Reading: {}", csvLoadPath);
+        rapidcsv::Document doc(csvLoadPath);
         
         // TODO: check that column headers exist
         //const std::vector<std::string> columnNames = doc.GetColumnNames(); 
@@ -134,10 +168,18 @@ void PyramidClusterExporter::writeData()
             fmt::println("PyramidClusterExporter: Mismatch!");
 
         const std::vector<std::string> clusterIDs = toColumn(clusters, numDataRows);
-
-        fmt::println("PyramidClusterExporter: Writing: {}", csvPath);
         doc.InsertColumn(doc.GetColumnCount(), clusterIDs, colName);
-        saveOverwrite(doc, csvPath);
+
+        if (saveAsNewFile)
+        {
+            fmt::println("PyramidClusterExporter: Writing: {} (new file)", csvSavePath);
+            doc.Save(csvSavePath);
+        }
+        else
+        {
+            fmt::println("PyramidClusterExporter: Writing: {} (overwrite)", csvLoadPath);
+            saveOverwrite(doc, csvLoadPath);
+        }
 
         fmt::println("PyramidClusterExporter: Done.");
     }
@@ -168,9 +210,7 @@ mv::plugin::WriterPlugin* PyramidClusterExporterFactory::produce()
 
 DataTypes PyramidClusterExporterFactory::supportedDataTypes() const
 {
-    DataTypes supportedTypes;
-    supportedTypes.append(ClusterType);
-    return supportedTypes;
+    return { ClusterType };
 }
 
 PluginTriggerActions PyramidClusterExporterFactory::getPluginTriggerActions(const mv::Datasets& datasets) const

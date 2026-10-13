@@ -2,9 +2,10 @@
 
 #include <WriterPlugin.h>
 
-#include <actions/GroupAction.h>
 #include <actions/FilePickerAction.h>
+#include <actions/GroupAction.h>
 #include <actions/StringAction.h>
+#include <actions/ToggleAction.h>
 #include <actions/TriggerAction.h>
 
 #include <QDialog>
@@ -21,16 +22,20 @@ public:
     explicit PyramidClusterExporterDialog(QWidget* parent);
 
 public:
-    QString getFilePath() const {
+    [[nodiscard]] QString getFilePath() const {
         return _datafilePickerAction.getFilePath();
     }
-    QString getColumnName() const {
+    [[nodiscard]] QString getColumnName() const {
         return _columnNameAction.getString();
+    }
+    [[nodiscard]] bool getSaveAsNew() const {
+        return _saveAsNewAction.isChecked();
     }
 
 private:
     mv::gui::FilePickerAction       _datafilePickerAction;             /** Path to CSV file on disk */
     mv::gui::StringAction           _columnNameAction;                 /** Name of cluster ID column */
+    mv::gui::ToggleAction           _saveAsNewAction;                  /** Whether to save a new json instead of overwriting */
     mv::gui::TriggerAction          _writeButtonAction;
     mv::gui::GroupAction            _groupAction;
 };
