@@ -5,11 +5,13 @@
 #include <ClusterData/ClusterData.h>
 
 #include <filesystem>
+#include <stdexcept>
 #include <vector>
 
 #include <QFileDialog>
 
 #include <fmt/base.h>
+#include <fmt/format.h>
 #include <rapidcsv.h>
 
 Q_PLUGIN_METADATA(IID "studio.manivault.PyramidClusterExporter")
@@ -44,10 +46,16 @@ namespace
             doc.Save(tmp.string());
             std::filesystem::rename(tmp, target);   // replaces target
         }
-        catch (...) {
+        catch (const std::exception& e) {
             std::error_code ec;
             std::filesystem::remove(tmp, ec);               // cleanup
-            throw;
+
+            if (ec) {
+                fmt::print(stderr, "Failed to remove temporary file '{}': {} (code {})\n",
+                    tmp.string(), ec.message(), ec.value());
+            }
+
+            throw std::runtime_error(fmt::format("Error while saving csv file in saveOverwrite: {}", e.what()));
         }
     }
 }
@@ -161,7 +169,7 @@ void PyramidClusterExporter::writeData()
                 tr("CSV file (*.csv);;All Files (*)"));
 
             if (newSavePath.isNull() || newSavePath.isEmpty())
-                throw std::exception("New CSV file invalid");
+                throw std::runtime_error("New CSV file is invalid");
 
             setSetting(registryEntry, QFileInfo(newSavePath).absolutePath());
 
