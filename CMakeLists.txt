@@ -25,6 +25,9 @@ find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
 
+find_package(ZLIB REQUIRED)
+find_package(zstd CONFIG REQUIRED)
+
 find_package(fmt CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(jsoncons REQUIRED)
