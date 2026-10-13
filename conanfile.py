@@ -103,8 +103,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
         # Set some build options
         tc.cache_variables["MV_UNITY_BUILD"] = "OFF"
         tc.cache_variables["CMAKE_CONFIGURATION_TYPES"] = "RelWithDebInfo"
-        tc.cache_variables["CMAKE_MSVC_RUNTIME_LIBRARY"] = "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
-
+        
         if os_info.is_macos:
             proc = subprocess.run("brew --prefix libomp", shell=True, capture_output=True)
             prefix_path = f"{proc.stdout.decode('UTF-8').strip()}"
@@ -116,7 +115,7 @@ class MaskedPyramidImagesPluginConan(ConanFile):
             vcpkg_exe = vcpkg_dir / "vcpkg.exe" if self.settings.os == "Windows" else vcpkg_dir / "vcpkg" 
             vcpkg_tc  = vcpkg_dir / "scripts" / "buildsystems" / "vcpkg.cmake"
 
-            vcpkg_triplet = "x64-windows-static-md"
+            vcpkg_triplet = "x64-windows"
             if self.settings.os == "Macos":
                 vcpkg_triplet = "arm64-osx"
             if self.settings.os == "Linux":
