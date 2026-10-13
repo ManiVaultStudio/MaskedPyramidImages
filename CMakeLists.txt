@@ -28,6 +28,13 @@ find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QU
 find_package(ZLIB REQUIRED)
 find_package(zstd CONFIG REQUIRED)
 
+# ManiVault core drags in zstd. When build in one project, e.g. in the "DevBundle"
+# we want to use the already existing zlib_static target and introduce it to vcpkg dependencies
+if(NOT TARGET zstd::libzstd_static AND TARGET libzstd_static)
+    message(STATUS "MaskedPyramidImages: Creating alias zstd::libzstd_static -> libzstd_static")
+    add_library(zstd::libzstd_static ALIAS libzstd_static)
+endif()
+
 find_package(fmt CONFIG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(jsoncons REQUIRED)
