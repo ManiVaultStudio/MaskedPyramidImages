@@ -112,7 +112,7 @@ namespace PyramidTiffData {
         csv.InsertColumn<double>(columnIdx++, centroidY, "Y");
         csv.InsertColumn<std::string>(columnIdx++, imageNames, "Image");
         csv.InsertColumn<int64_t>(columnIdx++, clusterIDs, "Cluster");
-        csv.InsertColumn<std::string>(columnIdx++, cellNames, "Object ID");
+        csv.InsertColumn<std::string>(columnIdx++, cellNames, "Object_ID");
 
         csv.Save(p.generic_string());
     }
