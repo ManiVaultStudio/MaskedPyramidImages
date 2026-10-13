@@ -25,32 +25,32 @@ find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
 
-# Force FindZLIB to discover vcpkg's copy and create the ZLIB::ZLIB imported target
-if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
-    set(ZLIB_ROOT "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}" CACHE PATH "vcpkg zlib root" FORCE)
-    set(ZLIB_INCLUDE_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include" CACHE PATH "" FORCE)
-endif()
-
-find_package(ZLIB REQUIRED)
-
-# Workaround: FindZLIB on Linux CI can set ZLIB_FOUND=1 but leave
-# ZLIB_LIBRARIES empty and fails to create the ZLIB::ZLIB imported target.
-# Detect and repair this case before find_package(TIFF) runs.
-if(NOT TARGET ZLIB::ZLIB)
-    message(STATUS "MaskedPyramidImages: ZLIB::ZLIB target missing despite ZLIB_FOUND=${ZLIB_FOUND}. Now creating ZLIB::ZLIB manually")
-    find_library(ZLIB_LIBRARY_MANUAL NAMES z zlib zlibstatic zlib_static ZLIB::ZLIBSTATIC REQUIRED)
-    add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
-    set_target_properties(ZLIB::ZLIB PROPERTIES
-        IMPORTED_LOCATION             "${ZLIB_LIBRARY_MANUAL}"
-        INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}"
-    )
-endif()
-
-# ManiVault core drags in zstd. When build in one project, e.g. in the "DevBundle"
+# ManiVault core drags in zstd and zlib. When build in one project, e.g. in the "DevBundle"
 # we want to use the already existing zlib_static target and introduce it to vcpkg dependencies
+
+if(TARGET ZLIB::ZLIB)
+    # Already provided (e.g. by parent project)
+elseif(TARGET zlibstatic)
+    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> zlibstatic")
+    add_library(ZLIB::ZLIB ALIAS zlibstatic)
+elseif(TARGET zlib_static)
+    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> zlib_static")
+    add_library(ZLIB::ZLIB ALIAS zlib_static)
+elseif(TARGET zlib)
+    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> zlib")
+    add_library(ZLIB::ZLIB ALIAS zlib)
+elseif(TARGET ZLIB::ZLIBSTATIC)
+    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> ZLIB::ZLIBSTATIC")
+    add_library(ZLIB::ZLIB ALIAS ZLIB::ZLIBSTATIC)
+else()
+  find_package(ZLIB REQUIRED)
+endif()
+
 if(TARGET libzstd_static)
     message(STATUS "MaskedPyramidImages: Creating alias zstd::libzstd_static -> libzstd_static")
     add_library(zstd::libzstd_static ALIAS libzstd_static)
+else()
+     find_package(zstd CONFIG REQUIRED)
 endif()
 
 find_package(fmt CONFIG REQUIRED)
