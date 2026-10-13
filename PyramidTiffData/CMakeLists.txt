@@ -12,8 +12,6 @@ PROJECT(${PYRAMIDTIFFDATA}
 # -----------------------------------------------------------------------------
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-mv_project_defaults()
-
 # Include cmake tools
 include(GenerateExportHeader)
 

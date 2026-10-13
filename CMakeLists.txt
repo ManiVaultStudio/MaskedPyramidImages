@@ -24,6 +24,7 @@ PROJECT(${PROJECT} LANGUAGES CXX)
 find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
+mv_project_defaults()
 
 find_package(ZLIB REQUIRED)
 find_package(zstd CONFIG REQUIRED)
