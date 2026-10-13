@@ -74,6 +74,8 @@ PyramidClusterExporterDialog::PyramidClusterExporterDialog(QWidget* parent) :
 
     _saveAsNewAction.setToolTip("Save a new json instead of overwriting the old");
 
+    _writeButtonAction.setEnabled(false);
+
     _groupAction.addAction(&_datafilePickerAction);
     _groupAction.addAction(&_columnNameAction);
     _groupAction.addAction(&_saveAsNewAction);
@@ -86,7 +88,26 @@ PyramidClusterExporterDialog::PyramidClusterExporterDialog(QWidget* parent) :
 
     setLayout(layout);
 
+    auto enableOkButton = [this]()
+    {
+        const QFileInfo filePathInfo(_datafilePickerAction.getFilePath());
+        const bool validFilePath = filePathInfo.exists() && filePathInfo.isFile();
+
+        const QString idName = _columnNameAction.getString();
+        const bool validId = idName.size() > 0;
+
+        _writeButtonAction.setEnabled(validFilePath && validId);
+    };
+
     connect(&_writeButtonAction, &TriggerAction::triggered, this, &QDialog::accept);
+    connect(&_datafilePickerAction, &FilePickerAction::filePathChanged, this, [this, enableOkButton](const QString& filePath)
+        {
+            enableOkButton();
+        });
+    connect(&_columnNameAction, &StringAction::stringChanged, this, [this, enableOkButton](const QString& string)
+        {
+            enableOkButton();
+        });
 }
 
 // =============================================================================
