@@ -25,20 +25,20 @@ find_package(Qt6 COMPONENTS Widgets WebEngineWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData ImageData CONFIG QUIET)
 
-get_property(_t DIRECTORY PROPERTY IMPORTED_TARGETS)
-message(STATUS "Imported targets: ${_t}")
-
 find_package(ZLIB REQUIRED)
 find_package(zstd CONFIG REQUIRED)
-
-get_property(_t DIRECTORY PROPERTY IMPORTED_TARGETS)
-message(STATUS "Imported targets: ${_t}")
 
 # ManiVault core drags in zstd. When build in one project, e.g. in the "DevBundle"
 # we want to use the already existing zlib_static target and introduce it to vcpkg dependencies
 if(NOT TARGET zstd::libzstd_static AND TARGET libzstd_static)
     message(STATUS "MaskedPyramidImages: Creating alias zstd::libzstd_static -> libzstd_static")
     add_library(zstd::libzstd_static ALIAS libzstd_static)
+endif()
+
+# Tiff expects ZLIB::ZLIB but vcpkg does not always provide that
+if(NOT TARGET ZLIB::ZLIB AND TARGET ZLIB::ZLIBSTATIC)
+    message(STATUS "MaskedPyramidImages: Creating alias ZLIB::ZLIB -> ZLIB::ZLIBSTATIC")
+    add_library(ZLIB::ZLIB ALIAS ZLIB::ZLIBSTATIC)
 endif()
 
 find_package(fmt CONFIG REQUIRED)
