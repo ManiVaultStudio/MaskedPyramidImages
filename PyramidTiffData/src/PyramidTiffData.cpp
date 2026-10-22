@@ -430,7 +430,11 @@ void PyramidImage::readLevel()
         };
 
     // 1. Publish Image data //
-    auto pointsDatasetLevel = mv::data().createDataset<Points>(QStringLiteral("Points"), QString("Level (%1)").arg(selectedLevel), this);
+    auto pointsDatasetLevel = mv::data().createDataset<Points>(QStringLiteral("Points"), 
+        QString("Level (%1)").arg(selectedLevel), 
+        this
+        );
+
     _levelDatasets.insert({ pointsDatasetLevel.getDatasetId(), { pointsDatasetLevel, selectedLevel } });
 
     pointsDatasetLevel->setData(channelMajorToPixelMajor(lvlDataChannelMajor, lvlNumChannels, lvlHeight, lvlWidth), lvlNumChannels);
@@ -439,7 +443,10 @@ void PyramidImage::readLevel()
     events().notifyDatasetDataChanged(pointsDatasetLevel);
     events().notifyDatasetDataDimensionsChanged(pointsDatasetLevel);
 
-    auto imagesDataset = mv::data().createDataset<Images>(QStringLiteral("Images"), QStringLiteral("Image (") + QString::number(selectedLevel) + ")", Dataset<DatasetImpl>(*pointsDatasetLevel));
+    auto imagesDataset = mv::data().createDataset<Images>(QStringLiteral("Images"), 
+        QStringLiteral("Image (") + QString::number(selectedLevel) + ")", 
+        Dataset<DatasetImpl>(*pointsDatasetLevel)
+        );
 
     imagesDataset->setText(QString("Images (%1x%2)").arg(QString::number(lvlWidth)).arg(QString::number(lvlHeight)));
     imagesDataset->setType(ImageData::Type::Stack);
@@ -596,7 +603,9 @@ void PyramidImage::writeClustersImpl(const QString& jsonPath)
     using namespace PyramidTiffData;
 
     mv::Dataset<Clusters> clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
-    fmt::println("PyramidImage::write_clusters: using cluster data from {}", clusterData->getGuiName().toStdString());
+    fmt::println("PyramidImage::write_clusters: using cluster data from {}",
+        clusterData->getGuiName().toStdString()
+        );
 
     // Check if the cluster is derived from some specific level, otherwise ask for the level
     auto getClusterLevel = [this](const mv::Dataset<Clusters>& clusterData) -> int32_t
