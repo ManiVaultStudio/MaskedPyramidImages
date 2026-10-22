@@ -119,7 +119,7 @@ void PyramidTiffLoader::loadData()
     // open dialog and wait for user input
     if (inputDialog.exec() == QDialog::Accepted && !inputDialog.getTiffFilePath().isEmpty()) {
 
-        auto pyramidImageData = mv::data().createDataset<PyramidImage>("Masked Image Pyramid", _pyramidTiffSettings.name);
+        auto pyramidImageData = mv::data().createDataset<PyramidImage>("Masked Image Pyramid Data", _pyramidTiffSettings.name);
 
     	pyramidImageData->setTiffFilePath(_pyramidTiffSettings.tiffFilePath);
         pyramidImageData->setJsonFilePath(_pyramidTiffSettings.jsonFilePath);
