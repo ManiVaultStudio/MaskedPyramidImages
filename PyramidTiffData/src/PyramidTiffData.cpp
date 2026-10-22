@@ -20,8 +20,9 @@
 #include <string>
 
 #include <QMetaObject>
+#include <QStringBuilder>
 
-Q_PLUGIN_METADATA(IID QStringLiteral(u"studio.manivault.PyramidImageData"))
+Q_PLUGIN_METADATA(IID QStringLiteral("studio.manivault.PyramidImageData"))
 
 using namespace mv;
 
@@ -137,9 +138,9 @@ QVariantMap PyramidImageData::toVariantMap() const
 // Data (Set)
 // =============================================================================
 
-const QString PyramidImage::SID_levelDatasets = QStringLiteral(u"LevelDatasets");
-const QString PyramidImage::SID_tiffFilePath = QStringLiteral(u"TiffFilePath");
-const QString PyramidImage::SID_jsonFilePath = QStringLiteral(u"JsonFilePath");
+const QString PyramidImage::SID_levelDatasets = QStringLiteral("LevelDatasets");
+const QString PyramidImage::SID_tiffFilePath = QStringLiteral("TiffFilePath");
+const QString PyramidImage::SID_jsonFilePath = QStringLiteral("JsonFilePath");
 
 PyramidImage::PyramidImage(const QString& dataName, const bool mayUnderive, const QString& guid) :
     DatasetImpl(dataName, mayUnderive, guid)
@@ -150,23 +151,23 @@ void PyramidImage::init()
 {
     DatasetImpl::init();
 
-	setIconByName(QStringLiteral(u"square-caret-up"));
+	setIconByName(QStringLiteral("square-caret-up"));
 
     _infoAction = QSharedPointer<PyramidInfoAction>::create(nullptr, *this);
 
     addAction(*_infoAction);
 
-    connect(&_infoAction->getReadLevelAction(), &gui::TriggerAction::triggered, this, &PyramidImage::read_level);
-    connect(&_infoAction->getWriteClustersAction(), &gui::TriggerAction::triggered, this, &PyramidImage::write_clusters);
+    connect(&_infoAction->getReadLevelAction(), &gui::TriggerAction::triggered, this, &PyramidImage::readLevel);
+    connect(&_infoAction->getWriteClustersAction(), &gui::TriggerAction::triggered, this, &PyramidImage::writeClusters);
 
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(mv::EventType::DatasetAboutToBeRemoved));
     _eventListener.addSupportedEventType(static_cast<std::uint32_t>(EventType::DatasetDataSelectionChanged));
     _eventListener.registerDataEventByType(PointType, [this](DatasetEvent* dataEvent) {
 
         const mv::Dataset<DatasetImpl> dataset = dataEvent->getDataset();
-        const QString datasetID = dataset.getDatasetId();
-        const auto itData = _levelDatasets.find(datasetID);
-        const bool isNotInLevelDatasets = itData == _levelDatasets.end();
+        const QString datasetId                = dataset.getDatasetId();
+        const auto itData                      = _levelDatasets.find(datasetId);
+        const bool isNotInLevelDatasets        = itData == _levelDatasets.end();
 
         switch (dataEvent->getType())
         {
@@ -381,16 +382,16 @@ void PyramidImage::scan() const
 
 }
 
-void PyramidImage::read_level()
+void PyramidImage::readLevel()
 {
     selectNone();
 
     // 0. Get data
-    const auto selectedLevel = _infoAction->getResolutionsAction().getCurrentIndex();
-    const auto pyramidData   = getRawData<PyramidImageData>();
-    const auto& imagePyramid = pyramidData->getPyramid();
-    const double scaleFactorWidth = imagePyramid.series().scaleFactorWidth(selectedLevel);
-    const double scaleFactorHeight = imagePyramid.series().scaleFactorHeight(selectedLevel);
+    const int32_t selectedLevel                         = _infoAction->getResolutionsAction().getCurrentIndex();
+    const PyramidImageData* pyramidData                 = getRawData<PyramidImageData>();
+    const PyramidTiffData::OmeTiffPyramid& imagePyramid = pyramidData->getPyramid();
+    const double scaleFactorWidth                       = imagePyramid.series().scaleFactorWidth(selectedLevel);
+    const double scaleFactorHeight                      = imagePyramid.series().scaleFactorHeight(selectedLevel);
     fmt::println("PyramidImage::read_level: reading level {} (factor {:.5f}, {:.5f})...", selectedLevel, scaleFactorWidth, scaleFactorHeight);
     const auto [lvlWidth, lvlHeight, lvlNumChannels, lvlChannelNames, lvlDataChannelMajor] = imagePyramid.read_level(selectedLevel);
     fmt::println("PyramidImage::read_level: read level with width {}, height {}", lvlWidth, lvlHeight);
@@ -401,7 +402,7 @@ void PyramidImage::read_level()
     if (lvlNumChannels == lvlChannelNames.size())
         for (auto& s : lvlChannelNames) channelNames.push_back(QString::fromStdString(s));
     else
-        for (uint32_t i = 0; i < lvlNumChannels; i++) channelNames.push_back(std::move(QString("Channel %1").arg(i)));
+        for (uint32_t i = 0; i < lvlNumChannels; i++) channelNames.push_back(QString("Channel %1").arg(i));
 
     // Reshape to HWC (height-width-channel) from CHW (channel-height-width)
     // TODO: consider load data in HWC (height-width-channel) format instead of CHW (channel-height-width)
@@ -513,30 +514,30 @@ void PyramidImage::read_level()
     {
         fmt::println("Transform ROI mask");
         auto [maskIDs_roi, pixel_counts_roi] = polygons.getMaskRoi(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_roi, pixel_counts_roi, polygons.names_roi(), "ROI", &polygons.colors_roi());
+        publicMaskData(maskIDs_roi, pixel_counts_roi, polygons.names_roi(), QStringLiteral("ROI"), &polygons.colors_roi());
     }
     if (polygons.has_tissue() && _infoAction->getLoadTissuesAction().isChecked())
     {
         fmt::println("Transform TISSUE mask");
         auto [maskIDs_tissue, pixel_counts_tissue] = polygons.getMaskTissue(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_tissue, pixel_counts_tissue, polygons.names_tissue(), "TISSUE", &polygons.colors_tissue());
+        publicMaskData(maskIDs_tissue, pixel_counts_tissue, polygons.names_tissue(), QStringLiteral("TISSUE"), &polygons.colors_tissue());
     }
     if (polygons.has_cell() && _infoAction->getLoadCellsAction().isChecked())
     {
         fmt::println("Transform CELL mask");
         auto [maskIDs_cell, pixel_counts_cell] = polygons.getMaskCell(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_cell, pixel_counts_cell, polygons.names_cell(), "CELL");
+        publicMaskData(maskIDs_cell, pixel_counts_cell, polygons.names_cell(), QStringLiteral("CELL"));
     }
     if (polygons.has_nucleus() && _infoAction->getLoadNucleiAction().isChecked())
     {
         fmt::println("Transform NUCLEUS mask");
         auto [maskIDs_nucleus, pixel_counts_nucleus] = polygons.getMaskNucleus(scaleFactorWidth, scaleFactorHeight, lvlWidth, lvlHeight);
-        publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, polygons.names_cell(), "NUCLEUS");
+        publicMaskData(maskIDs_nucleus, pixel_counts_nucleus, polygons.names_cell(), QStringLiteral("NUCLEUS"));
     }
 
 }
 
-void PyramidImage::write_clusters()
+void PyramidImage::writeClusters()
 {
     using namespace PyramidTiffData;
 
@@ -792,8 +793,8 @@ void PyramidImage::fromVariantMap(const QVariantMap& variantMap)
             _infoAction.get(),
             [this]() {
                 _infoAction->getReadLevelAction().setDisabled(true);
-                _infoAction->getTiffFilePathAction().setString(QStringLiteral(u"File not found"));
-                _infoAction->getJsonFilePathAction().setString(QStringLiteral(u"File not found"));
+                _infoAction->getTiffFilePathAction().setString(QStringLiteral("File not found"));
+                _infoAction->getJsonFilePathAction().setString(QStringLiteral("File not found"));
             },
             Qt::QueuedConnection
         );
@@ -835,7 +836,7 @@ QVariantMap PyramidImage::toVariantMap() const
 
 PyramidImageDataFactory::PyramidImageDataFactory()
 {
-    RawDataFactory::setIconByName(QStringLiteral(u"database"));
+    RawDataFactory::setIconByName(QStringLiteral("database"));
 }
 
 plugin::RawData* PyramidImageDataFactory::produce()
