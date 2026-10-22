@@ -439,7 +439,7 @@ void PyramidImage::readLevel()
     events().notifyDatasetDataChanged(pointsDatasetLevel);
     events().notifyDatasetDataDimensionsChanged(pointsDatasetLevel);
 
-    auto imagesDataset = mv::data().createDataset<Images>(QStringLiteral("Images"), QStringLiteral("Images"), Dataset<DatasetImpl>(*pointsDatasetLevel));
+    auto imagesDataset = mv::data().createDataset<Images>(QStringLiteral("Images"), QStringLiteral("Image (") + QString::number(selectedLevel) + ")", Dataset<DatasetImpl>(*pointsDatasetLevel));
 
     imagesDataset->setText(QString("Images (%1x%2)").arg(QString::number(lvlWidth)).arg(QString::number(lvlHeight)));
     imagesDataset->setType(ImageData::Type::Stack);
