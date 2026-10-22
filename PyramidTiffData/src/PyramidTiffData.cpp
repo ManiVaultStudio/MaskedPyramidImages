@@ -456,10 +456,14 @@ void PyramidImage::read_level()
         auto& selectionIDs = pointsDatasetLevelSelection->indices;
         selectionIDs.clear();
         selectionIDs.swap(maskIDs);
-        auto maskedPointData = mv::data().createSubsetFromSelection(pointsDatasetLevelSelection, pointsDatasetLevel, dataPrefix + QStringLiteral(" data"), pointsDatasetLevel, true, true);
+        auto maskedPointData = mv::data().createSubsetFromSelection(pointsDatasetLevelSelection, pointsDatasetLevel,
+            dataPrefix + QStringLiteral(" data (") + QString::number(selectedLevel) + ")",
+            pointsDatasetLevel, true, true);
         selectionIDs.swap(maskIDs);
 
-        auto clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), dataPrefix + QStringLiteral(" clusters"), pointsDatasetLevel);
+        auto clustersData = mv::data().createDataset<Clusters>(QStringLiteral("Cluster"), 
+            dataPrefix + QStringLiteral("clusters (") + QString::number(selectedLevel) + ")",
+            pointsDatasetLevel);
 
         assert(polygonNames.size() == pixel_counts.size());
         assert(!colors || colors->size() == pixel_counts.size());
