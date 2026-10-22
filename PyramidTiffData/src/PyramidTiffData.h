@@ -129,6 +129,7 @@ public:
 private:
     void readLevel();
     void writeClusters();
+    void writeClustersImpl(const QString& jsonPath);
 
 public: // Getter and Setter
     [[nodiscard]] QString getTiffFilePath() const {

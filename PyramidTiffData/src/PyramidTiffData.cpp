@@ -5,6 +5,7 @@
 #include "PyramidInfoAction.h"
 
 #include <event/Event.h>
+#include <widgets/FileDialog.h>
 
 #include <ImageData/Images.h>
 #include <PointData/PointData.h>
@@ -537,36 +538,78 @@ void PyramidImage::readLevel()
 
 }
 
+namespace
+{
+    using namespace PyramidTiffData;
+
+    std::filesystem::path askUserForPath(const QString& rawDataName)
+    {
+        // Same as LoaderPlugin::AskForFileName
+        QSettings settings(QLatin1String{ "ManiVault" }, QLatin1String{ "Plugins/" } + PyramidImageDataType + rawDataName);
+
+        const QLatin1String directoryPathKey("directoryPath");
+
+        const auto directoryPath = settings.value(directoryPathKey).toString();
+        const auto fileName = mv::gui::FileDialog::getOpenFileName(nullptr, QObject::tr("Load File"), directoryPath, "JSON Files (*.json)" + QObject::tr(";;All Files (*)"));
+
+        if (!fileName.isEmpty())
+            settings.setValue(directoryPathKey, QFileInfo(fileName).absolutePath());
+
+        return fileName.toStdString();
+    }
+
+    void writeClustersAskForPath(const std::filesystem::path& jsonFilePath,
+        const int64_t numCells,
+        const int64_t numClusters,
+        const PolygonData& polygons,
+        const std::vector<std::vector<uint32_t>>& cellClusterIds
+        )
+    {
+        const auto csvPath = changeExtension(jsonFilePath, ".csv");
+        fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
+        writeClusterIdsToCsv(csvPath, numCells, numClusters, polygons, cellClusterIds);
+    }
+
+} // end anynomous namespace
+
 void PyramidImage::writeClusters()
+{
+    // if _jsonFilePath exists, use that
+    // otherwise ask user for a different path
+    std::filesystem::path jsonFilePath = _jsonFilePath.toStdString();
+    if (!std::filesystem::exists(jsonFilePath))
+    {
+        jsonFilePath = askUserForPath(getRawDataName());
+
+        if (!std::filesystem::exists(jsonFilePath))
+        {
+            fmt::println("PyramidImage::write_clusters: json file does not exist: {}", jsonFilePath);
+            return;
+        }
+    }
+
+    writeClustersImpl(QString::fromStdString(jsonFilePath.string()));
+}
+
+void PyramidImage::writeClustersImpl(const QString& jsonPath)
 {
     using namespace PyramidTiffData;
 
     mv::Dataset<Clusters> clusterData = _infoAction->getClusterDataAction().getCurrentDataset<Clusters>();
     fmt::println("PyramidImage::write_clusters: using cluster data from {}", clusterData->getGuiName().toStdString());
 
-    // Check if _jsonFilePath exists
-    // TODO: otherwise ask for filepath
-    std::filesystem::path jsonFilePath = _jsonFilePath.toStdString();
-    const bool jsonExists = std::filesystem::exists(jsonFilePath);
-
-    if (!jsonExists)
-    {
-        fmt::println("PyramidImage::write_clusters: json file does not exist: {}", jsonExists);
-        return;
-    }
-
     // Check if the cluster is derived from some specific level, otherwise ask for the level
     auto getClusterLevel = [this](const mv::Dataset<Clusters>& clusterData) -> int32_t
-    {
-        // Walk back in the chain of derived data until we find the original source
-        // Any cluster is ultimately derived from a dataset which in turn must be a child of an entry in _levelDatasets
-        const auto levelDataIt = checkIfDataIsDerived(clusterData);
+        {
+            // Walk back in the chain of derived data until we find the original source
+            // Any cluster is ultimately derived from a dataset which in turn must be a child of an entry in _levelDatasets
+            const auto levelDataIt = checkIfDataIsDerived(clusterData);
 
-        if (levelDataIt == _levelDatasets.end())
-            return -1;
+            if (levelDataIt == _levelDatasets.end())
+                return -1;
 
-        return static_cast<int32_t>(levelDataIt->second.second);
-    };
+            return static_cast<int32_t>(levelDataIt->second.second);
+        };
 
     const int32_t clusterLevel = getClusterLevel(clusterData);
 
@@ -592,7 +635,7 @@ void PyramidImage::writeClusters()
         cell_clusters <- {}
         for each cluster in clusterData:
             cell_clusters <- + overlap(cluster_pixels, cell_pixels)
-    
+
     for each cell_entry in json_file:
         write(cell_clusters, cell_entry)
     */
@@ -600,7 +643,7 @@ void PyramidImage::writeClusters()
     // (I) Read 
     //std::vector<CellStruct> cellStructs = readCellStructs(jsonFilePath, baseWidth, baseHeight, true);
 
-    const auto& polygons = getRawData<PyramidImageData>()->getPolygons();
+    const PolygonData& polygons = getRawData<PyramidImageData>()->getPolygons();
     auto [cell_maskIDs, cell_pixel_counts] = polygons.getMaskCell(1.0, 1.0, baseWidth, baseHeight);
 
     QVector<Cluster>& dataClusters = clusterData->getClusters();
@@ -687,7 +730,7 @@ void PyramidImage::writeClusters()
 
                 if (cellClusterIds[numCell].empty()) {
                     fmt::println("Empty cellClusterIds for cell {}, clusterIDs[{}]: {}", numCell, numCell, clusterIDs);
-                    for (auto id: clusterIDs)
+                    for (auto id : clusterIDs)
                     {
                         if (!ids.contains(id))
                             fmt::println("{} not known", numCell);
@@ -700,12 +743,11 @@ void PyramidImage::writeClusters()
     }
 
     // write to csv
-    const auto csvPath = changeExtension(jsonFilePath, ".csv");
-    fmt::println("PyramidImage::write_clusters: Write new cluster file to {}", csvPath);
-    writeClusterIdsToCsv(csvPath, numCells, numClusters, polygons, cellClusterIds);
+    writeClustersAskForPath(jsonPath.toStdString(), numCells, numClusters, polygons, cellClusterIds);
 
     fmt::println("PyramidImage::write_clusters: Done.");
 }
+
 
 std::vector<std::uint32_t>& PyramidImage::getSelectionIndices()
 {
