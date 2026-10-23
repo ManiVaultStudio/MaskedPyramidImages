@@ -16,8 +16,11 @@ This repo provides the plugins `PyramidTiffData` and `PyramidTiffLoader` and use
 ├── CMakeLists.txt
 ├── README.md
 ├── vcpkg.json
+├── PyramidClusterExporter/
 ├── PyramidTiffData/
 ├── PyramidTiffLoader/
+├── res/docs/
+├── tools/
 └── test/
 ```
 
@@ -40,7 +43,7 @@ This repo provides the plugins `PyramidTiffData` and `PyramidTiffLoader` and use
 - Channel names are read from `["properties"]["name"]`
 - If available, masks are assigned a color
 
-JSON structure:
+**JSON structure**:
 ```JSON
 {
   "type": "FeatureCollection",
@@ -94,6 +97,8 @@ JSON structure:
 }
 ```
 
+**Export clusters**: Select a cluster dataset that is derived from loaded pyramid image data. This options will map the cluster IDs to the cells from the GeoJSON file. It will then save a new CSV file with coordinates, Object IDs and cluster IDs.
+
 ## PyramidTiffLoader
 <p align="middle">
   <img src="./res/docs/screen_loader.png" align="middle" width="55%" />
@@ -129,12 +134,17 @@ Total Positive Pixels (across all polygons): 30896000
 ------------------------------------------------------------
 ```
 
+## PyramidClusterExporter
+This exporter plugin does not specifically relate to pyramid image data but is still useful when handling it.
+When data is loaded from a CSV file, e.g. with the [ExtCsvLoader](https://github.com/ManiVaultStudio/ExtCsvLoader/) plugin, it can be useful to cluster it and then write the cluster names back to the same CSV file, or to a copy of it.
+Use this plugin via a right-click on a cluster dataset in the data hierarchy and then `Export > Cluster ID (append to CSV)`.
+
 ## Selection mapping
 
 The `PyramidTiffData` plugins manages the mapping of selections between pyramid levels internally instead of relying on ManiVault's internal mapping mechanism.
 This is necessary since we only lazily load pyramid levels and evaluate selection mappings on-the-fly. 
 Selections in a level are first mapped to the base level first and from there to all other levels that have been loaded. 
 <!-- 
-ManiVault's current selection mapping does not allow this flexibily at the moment.
+ManiVault's current selection mapping does not allow this flexibility at the moment.
 I tried to derive each level from an abstract base level, but that proved problematic.
 -->

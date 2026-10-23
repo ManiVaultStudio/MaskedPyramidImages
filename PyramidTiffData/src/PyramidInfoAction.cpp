@@ -24,10 +24,12 @@ PyramidInfoAction::PyramidInfoAction(QObject* parent, PyramidImage& pyramidImage
     _datasetClusterAction(this, "Cluster data"),
     _writeClustersAction(this, "Write clusters")
 {
-    setText("Info");
+    setText("Pyramid Image Info");
 
     _datasetClusterAction.setEnabled(false);
     _writeClustersAction.setEnabled(false);
+
+    _writeClustersAction.setToolTip("Map the cluster IDs to the cells from the geoJSON file.\nSaves a new csv file with coordinates,\nObject IDs and cluster IDs");
 
     _datasetClusterAction.setFilterFunction([this](mv::Dataset<mv::DatasetImpl> dataset) -> bool {
         if (dataset->getDataType() == ClusterType) 
