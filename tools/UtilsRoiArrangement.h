@@ -164,6 +164,7 @@ namespace PyramidTiffData {
         const std::filesystem::path& out_coords_json_path,
         const std::filesystem::path& roi_order_path = "",
         const size_t series_idx = 0,
-        const uint32_t tile_size = 256);
+        const uint32_t tile_size = 256,
+        const bool dry_run = false);
 
 } // namespace PyramidTiffData
